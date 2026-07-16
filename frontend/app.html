@@ -3,58 +3,102 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MyLeads - Übersicht</title>
+  <title>Suchanfragen - MyLeads</title>
   <link rel="stylesheet" href="css/style.css" />
   <script src="js/api.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 <body>
-  <div class="page" x-data="appShell()" x-init="init()">
-    <div class="top-nav">
-      <h1 style="margin:0;">MyLeads</h1>
-      <button class="btn-secondary" @click="logout()">Logout</button>
+  <div class="app-shell" x-data="appShell()" x-init="init()">
+    <aside class="sidebar">
+      <div>
+        <div class="sidebar-brand">MyLeads</div>
+        <nav class="sidebar-nav">
+          <a href="dashboard.html">Dashboard</a>
+          <a href="app.html">Suchanfragen</a>
+          <a href="leads.html">Leads</a>
+          <a href="team.html">Team</a>
+          <a href="settings.html">Einstellungen</a>
+        </nav>
+      </div>
+      <div class="sidebar-footer">
+        <span class="user-email" x-text="user && user.email"></span>
+        <button class="btn-ghost" style="width:100%;" @click="logout()">Logout</button>
+      </div>
+    </aside>
+
+    <div class="main-content">
+      <div class="page">
+        <div class="top-nav">
+          <h1 style="margin:0;">Suchanfragen</h1>
+          <a href="new-search.html"><button class="btn-primary" style="margin:0;" x-show="!isPlatformAdmin">+ Neues Zielprofil</button></a>
+        </div>
+
+        <template x-if="loading">
+          <div class="card">
+            <div class="skeleton skeleton-line w-40"></div>
+            <div class="skeleton skeleton-line w-60"></div>
+          </div>
+        </template>
+
+        <div class="card" x-show="!loading && user">
+          <p style="margin:0 0 0.35rem;">Eingeloggt als <strong x-text="user && user.email"></strong> (<span x-text="user && user.role"></span>)</p>
+          <template x-if="organization">
+            <p style="margin:0;">
+              Firma: <strong x-text="organization.name"></strong> &middot; Plan: <span x-text="organization.plan"></span>
+              &middot;
+              <span class="badge" :class="organization.subscription_status === 'active' ? 'badge-active' : 'badge-pending'"
+                    x-text="organization.subscription_status"></span>
+            </p>
+          </template>
+        </div>
+
+        <template x-if="!loading && isPlatformAdmin">
+          <div class="card" style="margin-top:1.5rem;">
+            <h2 style="margin-top:0;">Platform-Admin</h2>
+            <p class="subtitle">
+              Der Platform-Admin ist nicht Teil der normalen Kunden-Oberfläche und bekommt einen eigenen,
+              separat geschützten Bereich (<code>/platform-admin</code>) — der wird erst in Phase 3 gebaut.
+            </p>
+            <p class="subtitle" style="margin:0;">
+              Das Backend dafür funktioniert schon (z.B. <code>POST /api/platform-admin/scraping/suppress</code>),
+              nur die Oberfläche fehlt noch.
+            </p>
+          </div>
+        </template>
+
+        <template x-if="!isPlatformAdmin">
+          <div>
+            <h2>Zielprofile</h2>
+            <p class="subtitle" x-show="!loading && targetProfiles.length === 0">
+              Noch keine Zielprofile angelegt. Beschreibe dein Produkt und deine Zielgruppe, um deine erste Lead-Suche zu starten.
+            </p>
+
+            <div class="card" style="margin-bottom:0.75rem;" x-show="!loading && targetProfiles.length > 0">
+              <template x-for="profile in targetProfiles" :key="profile.id">
+                <a :href="'target-profile.html?id=' + profile.id" style="display:block; padding:0.75rem 0; border-bottom:1px solid var(--color-border-subtle); text-decoration:none; color:inherit;">
+                  <strong x-text="profile.name"></strong>
+                  <p class="subtitle" style="margin:0.25rem 0;" x-text="profile.product_description"></p>
+                  <p class="plan-meta" style="margin:0;">Angelegt am <span x-text="profile.created_at"></span></p>
+                </a>
+              </template>
+            </div>
+          </div>
+        </template>
+
+        <div class="error-box" x-show="error" x-text="error"></div>
+      </div>
     </div>
-
-    <div class="card" x-show="!loading && user">
-      <p>Eingeloggt als <strong x-text="user && user.email"></strong> (<span x-text="user && user.role"></span>)</p>
-      <template x-if="organization">
-        <p>
-          Firma: <strong x-text="organization.name"></strong> &middot; Plan: <span x-text="organization.plan"></span>
-          &middot;
-          <span class="badge" :class="organization.subscription_status === 'active' ? 'badge-active' : 'badge-pending'"
-                x-text="organization.subscription_status"></span>
-        </p>
-      </template>
-    </div>
-
-    <div class="top-nav" style="margin-top:1.5rem;">
-      <h2 style="margin:0;">Zielprofile</h2>
-      <a href="new-search.html"><button class="btn-primary" style="margin:0;">+ Neues Zielprofil</button></a>
-    </div>
-
-    <p class="subtitle" x-show="!loading && targetProfiles.length === 0">
-      Noch keine Zielprofile angelegt. Beschreibe dein Produkt und deine Zielgruppe, um deine erste Lead-Suche zu starten.
-    </p>
-
-    <div class="card" style="margin-bottom:0.75rem;" x-show="!loading && targetProfiles.length > 0">
-      <template x-for="profile in targetProfiles" :key="profile.id">
-        <a :href="'target-profile.html?id=' + profile.id" style="display:block; padding:0.75rem 0; border-bottom:1px solid var(--color-border); text-decoration:none; color:inherit;">
-          <strong x-text="profile.name"></strong>
-          <p class="subtitle" style="margin:0.25rem 0;" x-text="profile.product_description"></p>
-          <p class="plan-meta" style="margin:0;">Angelegt am <span x-text="profile.created_at"></span></p>
-        </a>
-      </template>
-    </div>
-
-    <div class="error-box" x-show="error" x-text="error"></div>
   </div>
 
+  <script src="js/sidebar.js"></script>
   <script>
     function appShell() {
       return {
         user: null,
         organization: null,
         targetProfiles: [],
+        isPlatformAdmin: false,
         loading: true,
         error: '',
         async init() {
@@ -66,8 +110,13 @@
             const me = await apiFetch('/auth/me');
             this.user = me.user;
             this.organization = me.organization;
-            const profiles = await apiFetch('/target-profiles');
-            this.targetProfiles = profiles.targetProfiles;
+            this.isPlatformAdmin = me.user.role === 'platform_admin';
+            // Platform-Admins have no organization_id, so the org-scoped
+            // target-profiles endpoint isn't relevant/reachable for them.
+            if (!this.isPlatformAdmin) {
+              const profiles = await apiFetch('/target-profiles');
+              this.targetProfiles = profiles.targetProfiles;
+            }
           } catch (err) {
             this.error = err.message;
           } finally {

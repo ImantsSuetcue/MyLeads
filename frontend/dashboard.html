@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard - MyLeads</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="js/api.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body>
+  <div class="app-shell" x-data="dashboardPage()" x-init="init()">
+    <aside class="sidebar">
+      <div>
+        <div class="sidebar-brand">MyLeads</div>
+        <nav class="sidebar-nav">
+          <a href="dashboard.html">Dashboard</a>
+          <a href="app.html">Suchanfragen</a>
+          <a href="leads.html">Leads</a>
+          <a href="team.html">Team</a>
+          <a href="settings.html">Einstellungen</a>
+        </nav>
+      </div>
+      <div class="sidebar-footer">
+        <span class="user-email" x-text="user && user.email"></span>
+        <button class="btn-ghost" style="width:100%;" @click="logout()">Logout</button>
+      </div>
+    </aside>
+
+    <div class="main-content">
+      <div class="page">
+        <h1>Dashboard</h1>
+        <p class="subtitle" x-show="!loading && !isPlatformAdmin">Willkommen zurück! Hier ist der aktuelle Stand deiner Lead-Suche.</p>
+
+        <template x-if="loading">
+          <div class="stat-grid">
+            <div class="skeleton skeleton-row"></div>
+            <div class="skeleton skeleton-row"></div>
+            <div class="skeleton skeleton-row"></div>
+          </div>
+        </template>
+
+        <div class="error-box" x-show="error" x-text="error"></div>
+
+        <template x-if="!loading && isPlatformAdmin">
+          <div class="card">
+            <h2 style="margin-top:0;">Platform-Admin</h2>
+            <p class="subtitle" style="margin:0;">
+              Der Platform-Admin-Bereich (<code>/platform-admin</code>) wird erst in Phase 3 gebaut.
+              Das Backend dafür funktioniert schon.
+            </p>
+          </div>
+        </template>
+
+        <template x-if="!loading && !isPlatformAdmin">
+          <div>
+            <div class="card" style="margin-bottom:1.5rem;">
+              <p style="margin:0 0 0.35rem;">Eingeloggt als <strong x-text="user && user.email"></strong> (<span x-text="user && user.role"></span>)</p>
+              <template x-if="organization">
+                <p style="margin:0;">
+                  Firma: <strong x-text="organization.name"></strong> &middot; Plan: <span x-text="organization.plan"></span>
+                  &middot;
+                  <span class="badge" :class="organization.subscription_status === 'active' ? 'badge-active' : 'badge-pending'"
+                        x-text="organization.subscription_status"></span>
+                </p>
+              </template>
+            </div>
+
+            <div class="stat-grid">
+              <div class="stat-card">
+                <div class="stat-label">Zielprofile</div>
+                <div class="stat-value" x-text="targetProfiles.length"></div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Leads gesamt</div>
+                <div class="stat-value" x-text="leads.length"></div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Leads mit E-Mail</div>
+                <div class="stat-value" x-text="leads.filter(l => l.email).length"></div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Hohe Passung</div>
+                <div class="stat-value" x-text="leads.filter(l => l.score === 'high').length"></div>
+              </div>
+            </div>
+
+            <div class="top-nav" style="margin-top:2rem;">
+              <h2 style="margin:0;">Zuletzt angelegte Zielprofile</h2>
+              <a href="new-search.html"><button class="btn-primary" style="margin:0;">+ Neues Zielprofil</button></a>
+            </div>
+
+            <p class="subtitle" x-show="!targetProfiles.length">Noch keine Zielprofile angelegt.</p>
+
+            <div class="card" x-show="targetProfiles.length">
+              <template x-for="profile in targetProfiles.slice(0, 5)" :key="profile.id">
+                <a :href="'target-profile.html?id=' + profile.id" style="display:block; padding:0.75rem 0; border-bottom:1px solid var(--color-border-subtle); text-decoration:none; color:inherit;">
+                  <strong x-text="profile.name"></strong>
+                  <p class="plan-meta" style="margin:0.25rem 0 0;" x-text="profile.product_description"></p>
+                </a>
+              </template>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/sidebar.js"></script>
+  <script>
+    function dashboardPage() {
+      return {
+        user: null,
+        organization: null,
+        targetProfiles: [],
+        leads: [],
+        isPlatformAdmin: false,
+        loading: true,
+        error: '',
+
+        async init() {
+          if (!auth.isLoggedIn()) {
+            window.location.href = 'login.html';
+            return;
+          }
+          try {
+            const me = await apiFetch('/auth/me');
+            this.user = me.user;
+            this.organization = me.organization;
+            this.isPlatformAdmin = me.user.role === 'platform_admin';
+            if (!this.isPlatformAdmin) {
+              const [profiles, leads] = await Promise.all([
+                apiFetch('/target-profiles'),
+                apiFetch('/leads'),
+              ]);
+              this.targetProfiles = profiles.targetProfiles;
+              this.leads = leads.leads;
+            }
+          } catch (err) {
+            this.error = err.message;
+          } finally {
+            this.loading = false;
+          }
+        },
+
+        logout() {
+          auth.clearToken();
+          window.location.href = 'login.html';
+        },
+      };
+    }
+  </script>
+</body>
+</html>

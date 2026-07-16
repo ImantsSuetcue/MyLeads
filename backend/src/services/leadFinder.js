@@ -104,10 +104,13 @@ async function runSearch(searchRunId) {
       })
     );
 
-    // Stage 3: enrich each lead with a short "why this fits" reasoning + fit score.
+    // Stage 3: enrich each lead with a "why this fits" reasoning, an individual value
+    // proposition, and a fit score.
     for (const lead of insertedLeads) {
-      const { reasoning, score } = await claudeClient.enrichLead(lead, targetProfile);
-      db.prepare('UPDATE leads SET ai_reasoning = ?, score = ? WHERE id = ?').run(reasoning, score, lead.id);
+      const { reasoning, valueProposition, score } = await claudeClient.enrichLead(lead, targetProfile);
+      db.prepare(
+        'UPDATE leads SET ai_reasoning = ?, value_proposition = ?, score = ? WHERE id = ?'
+      ).run(reasoning, valueProposition, score, lead.id);
     }
 
     db.prepare("UPDATE search_runs SET status = 'completed', completed_at = datetime('now') WHERE id = ?").run(

@@ -68,6 +68,7 @@ router.get('/:leadId', (req, res) => {
         companyStage: reportRow.company_stage,
         fitCategory: reportRow.fit_category,
         fitReasoning: reportRow.fit_reasoning,
+        valueProposition: reportRow.value_proposition,
         salesTalkingPoints: JSON.parse(reportRow.sales_talking_points || '[]'),
         sources: JSON.parse(reportRow.sources || '[]'),
         generatedAt: reportRow.generated_at,

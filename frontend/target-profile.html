@@ -9,110 +9,159 @@
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 <body>
-  <div class="page" x-data="targetProfilePage()" x-init="init()">
-    <div class="top-nav">
+  <div class="app-shell" x-data="targetProfilePage()" x-init="init()">
+    <aside class="sidebar">
       <div>
-        <a href="app.html" class="link-row" style="margin:0; text-align:left;">&larr; Zurück zur Übersicht</a>
-        <h1 style="margin:0.25rem 0 0;" x-text="profile ? profile.name : 'Lädt…'"></h1>
+        <div class="sidebar-brand">MyLeads</div>
+        <nav class="sidebar-nav">
+          <a href="dashboard.html">Dashboard</a>
+          <a href="app.html">Suchanfragen</a>
+          <a href="leads.html">Leads</a>
+          <a href="team.html">Team</a>
+          <a href="settings.html">Einstellungen</a>
+        </nav>
       </div>
-      <button class="btn-primary" style="margin:0;" :disabled="searching" @click="startSearch()">
-        <span x-text="searching ? 'Suche läuft…' : (searchRuns.length ? 'Suche wiederholen' : 'Suche starten')"></span>
-      </button>
-    </div>
+      <div class="sidebar-footer">
+        <span class="user-email" x-text="user && user.email"></span>
+        <button class="btn-ghost" style="width:100%;" @click="logout()">Logout</button>
+      </div>
+    </aside>
 
-    <div class="card" x-show="profile" style="margin-bottom:1.5rem;">
-      <p class="subtitle" x-text="profile && profile.product_description"></p>
-      <p class="plan-meta" style="margin:0;">
-        Zielgruppe: <span x-text="(profile && profile.target_audience) || '–'"></span> &middot;
-        Region: <span x-text="(profile && profile.region) || '–'"></span> &middot;
-        Branche: <span x-text="(profile && profile.industry) || '–'"></span> &middot;
-        Rolle: <span x-text="(profile && profile.contact_role) || '–'"></span>
-      </p>
-    </div>
+    <div class="main-content">
+      <div class="page">
+        <a href="app.html" class="link-row" style="margin:0 0 0.5rem; text-align:left; display:block;">&larr; Zurück zu Suchanfragen</a>
+        <div class="top-nav">
+          <h1 style="margin:0;" x-text="profile ? profile.name : 'Lädt…'"></h1>
+          <button class="btn-primary" style="margin:0;" :disabled="searching" @click="startSearch()">
+            <span x-text="searching ? 'Suche läuft…' : (searchRuns.length ? 'Suche wiederholen' : 'Suche starten')"></span>
+          </button>
+        </div>
 
-    <div class="error-box" x-show="error" x-text="error"></div>
+        <div class="card" x-show="profile" style="margin-bottom:1.5rem;">
+          <p class="subtitle" x-text="profile && profile.product_description"></p>
+          <p class="plan-meta" style="margin:0;">
+            Zielgruppe: <span x-text="(profile && profile.target_audience) || '–'"></span> &middot;
+            Region: <span x-text="(profile && profile.region) || '–'"></span> &middot;
+            Branche: <span x-text="(profile && profile.industry) || '–'"></span> &middot;
+            Rolle: <span x-text="(profile && profile.contact_role) || '–'"></span>
+          </p>
+        </div>
 
-    <h2>Suchverlauf</h2>
-    <div class="card" style="margin-bottom:1.5rem; overflow-x:auto;" x-show="searchRuns.length">
-      <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
-        <thead>
-          <tr style="text-align:left; border-bottom:1px solid var(--color-border);">
-            <th style="padding:0.4rem;">Datum</th>
-            <th style="padding:0.4rem;">Status</th>
-            <th style="padding:0.4rem;">Leads</th>
-            <th style="padding:0.4rem;">Firmen</th>
-            <th style="padding:0.4rem;">Zusammenfassung</th>
-          </tr>
-        </thead>
-        <tbody>
-          <template x-for="run in searchRuns" :key="run.id">
-            <tr style="cursor:pointer; border-bottom:1px solid var(--color-border);"
-                :style="run.id === selectedRunId ? 'background:#eef1fd;' : ''"
-                @click="selectRun(run.id)">
-              <td style="padding:0.4rem;" x-text="run.started_at"></td>
-              <td style="padding:0.4rem;">
-                <span class="badge" :class="run.status === 'completed' ? 'badge-active' : 'badge-pending'" x-text="run.status"></span>
-              </td>
-              <td style="padding:0.4rem;" x-text="run.leads_found_count"></td>
-              <td style="padding:0.4rem;" x-text="run.companies_found_count"></td>
-              <td style="padding:0.4rem;" x-text="runSummary(run)"></td>
-            </tr>
-          </template>
-        </tbody>
-      </table>
-    </div>
-    <p class="subtitle" x-show="!searchRuns.length">Noch keine Suche gestartet.</p>
+        <div class="error-box" x-show="error" x-text="error"></div>
 
-    <h2>Leads <span x-show="selectedRunId" class="plan-meta">(aus ausgewähltem Suchlauf)</span></h2>
-    <div class="card" style="overflow-x:auto;" x-show="leads.length">
-      <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
-        <thead>
-          <tr style="text-align:left; border-bottom:1px solid var(--color-border);">
-            <th style="padding:0.4rem;">Firma</th>
-            <th style="padding:0.4rem;">Person</th>
-            <th style="padding:0.4rem;">Rolle</th>
-            <th style="padding:0.4rem;">E-Mail</th>
-            <th style="padding:0.4rem;">Begründung</th>
-            <th style="padding:0.4rem;">Fit</th>
-            <th style="padding:0.4rem;">Status</th>
-            <th style="padding:0.4rem;">Datum</th>
-          </tr>
-        </thead>
-        <tbody>
-          <template x-for="lead in leads" :key="lead.id">
-            <tr style="border-bottom:1px solid var(--color-border); vertical-align:top; cursor:pointer;"
-                @click="openLead(lead.id)" title="Für Details klicken">
-              <td style="padding:0.4rem;">
-                <strong x-text="lead.company_name"></strong><br />
-                <span class="plan-meta" x-text="lead.company_domain"></span>
-              </td>
-              <td style="padding:0.4rem;" x-text="(lead.first_name || '') + ' ' + (lead.last_name || '')"></td>
-              <td style="padding:0.4rem;" x-text="lead.job_title || '–'"></td>
-              <td style="padding:0.4rem;" x-text="lead.email || '–'"></td>
-              <td style="padding:0.4rem; max-width:320px;" x-text="lead.ai_reasoning || '–'"></td>
-              <td style="padding:0.4rem;">
-                <span class="badge" :class="'badge-' + (lead.score === 'high' ? 'active' : 'pending')" x-text="lead.score || '–'"></span>
-              </td>
-              <td style="padding:0.4rem;" x-text="lead.status"></td>
-              <td style="padding:0.4rem;" x-text="lead.created_at"></td>
-            </tr>
-          </template>
-        </tbody>
-      </table>
+        <h2>Suchverlauf</h2>
+
+        <template x-if="loading">
+          <div class="card"><div class="skeleton skeleton-row"></div><div class="skeleton skeleton-row"></div></div>
+        </template>
+
+        <div class="card data-table-wrap" style="margin-bottom:1.5rem;" x-show="!loading && searchRuns.length">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Datum</th>
+                <th>Status</th>
+                <th>Leads</th>
+                <th>Firmen</th>
+                <th>Zusammenfassung</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="run in searchRuns" :key="run.id">
+                <tr class="clickable" :style="run.id === selectedRunId ? 'background:var(--color-primary-subtle);' : ''" @click="selectRun(run.id)">
+                  <td x-text="run.started_at"></td>
+                  <td><span class="badge" :class="run.status === 'completed' ? 'badge-active' : 'badge-pending'" x-text="run.status"></span></td>
+                  <td x-text="run.leads_found_count"></td>
+                  <td x-text="run.companies_found_count"></td>
+                  <td x-text="runSummary(run)"></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+        <p class="subtitle" x-show="!loading && !searchRuns.length">Noch keine Suche gestartet.</p>
+
+        <h2>Leads <span x-show="selectedRunId" class="plan-meta">(aus ausgewähltem Suchlauf)</span></h2>
+
+        <div class="search-bar" x-show="leads.length">
+          <input type="text" placeholder="Firma, Person oder E-Mail suchen…" x-model="searchQuery" />
+          <select x-model="fitFilter">
+            <option value="">Alle Fit-Kategorien</option>
+            <option value="high">Hohe Passung</option>
+            <option value="medium">Mittlere Passung</option>
+            <option value="low">Geringe Passung</option>
+          </select>
+        </div>
+
+        <div class="card data-table-wrap" x-show="leads.length">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Firma</th>
+                <th>Person</th>
+                <th>Rolle</th>
+                <th>E-Mail</th>
+                <th>Begründung</th>
+                <th>Fit</th>
+                <th>Status</th>
+                <th>Datum</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="lead in filteredLeads" :key="lead.id">
+                <tr class="clickable" @click="openLead(lead.id)" title="Für Details klicken">
+                  <td>
+                    <strong x-text="lead.company_name"></strong><br />
+                    <span class="plan-meta" x-text="lead.company_domain"></span>
+                  </td>
+                  <td x-text="(lead.first_name || '') + ' ' + (lead.last_name || '')"></td>
+                  <td x-text="lead.job_title || '–'"></td>
+                  <td x-text="lead.email || '–'"></td>
+                  <td style="max-width:320px;" x-text="lead.ai_reasoning || '–'"></td>
+                  <td><span class="badge" :class="'badge-fit-' + (lead.score || 'none')" x-text="lead.score || '–'"></span></td>
+                  <td><span class="badge" :class="'badge-status-' + lead.status" x-text="lead.status"></span></td>
+                  <td x-text="lead.created_at"></td>
+                </tr>
+              </template>
+              <tr x-show="leads.length && !filteredLeads.length">
+                <td colspan="8" class="subtitle" style="text-align:center;">Keine Leads passen zu diesem Filter.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="subtitle" x-show="!leads.length && searchRuns.length">Für diesen Suchlauf wurden noch keine Leads geladen.</p>
+      </div>
     </div>
-    <p class="subtitle" x-show="!leads.length && searchRuns.length">Für diesen Suchlauf wurden noch keine Leads geladen.</p>
   </div>
 
+  <script src="js/sidebar.js"></script>
   <script>
     function targetProfilePage() {
       return {
         profileId: new URLSearchParams(window.location.search).get('id'),
+        user: null,
         profile: null,
         searchRuns: [],
         leads: [],
         selectedRunId: null,
         searching: false,
+        loading: true,
         error: '',
+        searchQuery: '',
+        fitFilter: '',
+
+        get filteredLeads() {
+          const q = this.searchQuery.trim().toLowerCase();
+          return this.leads.filter((lead) => {
+            if (this.fitFilter && lead.score !== this.fitFilter) return false;
+            if (!q) return true;
+            const haystack = [lead.company_name, lead.first_name, lead.last_name, lead.email]
+              .filter(Boolean)
+              .join(' ')
+              .toLowerCase();
+            return haystack.includes(q);
+          });
+        },
 
         async init() {
           if (!auth.isLoggedIn()) {
@@ -121,10 +170,18 @@
           }
           if (!this.profileId) {
             this.error = 'Kein Zielprofil ausgewählt.';
+            this.loading = false;
             return;
+          }
+          try {
+            const me = await apiFetch('/auth/me');
+            this.user = me.user;
+          } catch (err) {
+            this.error = err.message;
           }
           await this.loadProfile();
           await this.loadSearchRuns();
+          this.loading = false;
         },
 
         async loadProfile() {
@@ -181,6 +238,11 @@
 
         openLead(leadId) {
           window.location.href = `lead-detail.html?profileId=${this.profileId}&leadId=${leadId}`;
+        },
+
+        logout() {
+          auth.clearToken();
+          window.location.href = 'login.html';
         },
       };
     }

@@ -9,99 +9,140 @@
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 <body>
-  <div class="page" x-data="leadDetailPage()" x-init="init()">
-    <a :href="'target-profile.html?id=' + profileId" class="link-row" style="margin:0 0 1rem; text-align:left;">&larr; Zurück zur Lead-Liste</a>
-
-    <div class="error-box" x-show="error" x-text="error"></div>
-
-    <template x-if="lead">
+  <div class="app-shell" x-data="leadDetailPage()" x-init="init()">
+    <aside class="sidebar">
       <div>
-        <div class="card" style="margin-bottom:1.5rem;">
-          <div class="top-nav" style="margin-bottom:0.5rem;">
-            <h1 style="margin:0;" x-text="lead.company_name"></h1>
-            <span class="badge" :class="'badge-' + (lead.score === 'high' ? 'active' : 'pending')" x-text="'Fit: ' + (lead.score || '–')"></span>
-          </div>
-          <p class="plan-meta" style="margin:0 0 1rem;" x-text="lead.company_domain"></p>
+        <div class="sidebar-brand">MyLeads</div>
+        <nav class="sidebar-nav">
+          <a href="dashboard.html">Dashboard</a>
+          <a href="app.html">Suchanfragen</a>
+          <a href="leads.html">Leads</a>
+          <a href="team.html">Team</a>
+          <a href="settings.html">Einstellungen</a>
+        </nav>
+      </div>
+      <div class="sidebar-footer">
+        <span class="user-email" x-text="user && user.email"></span>
+        <button class="btn-ghost" style="width:100%;" @click="logout()">Logout</button>
+      </div>
+    </aside>
 
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
-            <div>
-              <label style="margin-top:0;">Branche</label>
-              <p x-text="lead.company_industry || '–'"></p>
-              <label>Firmengröße</label>
-              <p x-text="lead.company_size || '–'"></p>
-              <label>Status</label>
-              <p x-text="lead.status"></p>
-            </div>
-            <div>
-              <label style="margin-top:0;">Ansprechperson</label>
-              <p x-text="(lead.first_name || '') + ' ' + (lead.last_name || '') + (lead.job_title ? ' · ' + lead.job_title : '')"></p>
-              <label>E-Mail</label>
-              <p x-text="lead.email || '–'"></p>
-              <label>LinkedIn</label>
-              <p><a :href="lead.linkedin_url" target="_blank" rel="noopener" x-show="lead.linkedin_url" x-text="lead.linkedin_url"></a><span x-show="!lead.linkedin_url">–</span></p>
-            </div>
-          </div>
+    <div class="main-content">
+      <div class="page">
+        <a :href="'target-profile.html?id=' + profileId" class="link-row" style="margin:0 0 1rem; text-align:left; display:block;">&larr; Zurück zur Lead-Liste</a>
 
-          <label>KI-Begründung</label>
-          <p x-text="lead.ai_reasoning || '–'"></p>
-        </div>
+        <div class="error-box" x-show="error" x-text="error"></div>
 
-        <template x-if="report">
-          <div class="card">
-            <h2 style="margin-top:0;">Tiefen-Recherche</h2>
-
-            <label style="margin-top:0;">Kurz-Zusammenfassung / aktuelle News</label>
-            <p x-text="report.newsSummary || '–'"></p>
-
-            <label>Kennzahlen</label>
-            <p class="plan-meta" style="margin:0 0 1rem;">
-              Mitarbeitende: <span x-text="(report.companyKpis && report.companyKpis.employees) || '–'"></span> &middot;
-              Umsatz: <span x-text="(report.companyKpis && report.companyKpis.revenueRange) || '–'"></span> &middot;
-              Wachstumssignale: <span x-text="(report.companyKpis && report.companyKpis.growthSignals) || '–'"></span>
-            </p>
-
-            <label>Unternehmensphase</label>
-            <p x-text="report.companyStage || '–'"></p>
-
-            <label>Fit-Einschätzung</label>
-            <p>
-              <span class="badge" :class="'badge-' + (report.fitCategory === 'high' ? 'active' : 'pending')" x-text="report.fitCategory || '–'"></span>
-              <span x-text="' ' + (report.fitReasoning || '')"></span>
-            </p>
-
-            <label>Gesprächsaufhänger</label>
-            <ul style="margin:0.25rem 0 1rem; padding-left:1.2rem;">
-              <template x-for="point in report.salesTalkingPoints" :key="point">
-                <li x-text="point"></li>
-              </template>
-            </ul>
-
-            <label>Quellen</label>
-            <ul style="margin:0.25rem 0 0; padding-left:1.2rem; font-size:0.85rem;">
-              <template x-for="source in report.sources" :key="source">
-                <li><a :href="source" target="_blank" rel="noopener" x-text="source"></a></li>
-              </template>
-            </ul>
-          </div>
+        <template x-if="loading">
+          <div class="card"><div class="skeleton skeleton-line w-40"></div><div class="skeleton skeleton-line w-60"></div></div>
         </template>
 
-        <template x-if="!report">
-          <div class="card" style="text-align:center;">
-            <p class="subtitle" style="margin:0;">Für diesen Lead liegt keine Tiefen-Recherche vor.</p>
-            <p style="margin:0.5rem 0 0; font-weight:600;">Tiefen-Recherche verfügbar ab Team-Paket</p>
+        <template x-if="lead">
+          <div>
+            <div class="card" style="margin-bottom:1.5rem;">
+              <div class="top-nav" style="margin-bottom:0.5rem;">
+                <h1 style="margin:0;" x-text="lead.company_name"></h1>
+                <span class="badge" :class="'badge-fit-' + (lead.score || 'none')" x-text="'Fit: ' + (lead.score || '–')"></span>
+              </div>
+              <p class="plan-meta" style="margin:0 0 1rem;" x-text="lead.company_domain"></p>
+
+              <div style="display:flex; gap:0.6rem; margin-bottom:1.25rem;">
+                <a class="icon-link" :href="'https://' + lead.company_domain" target="_blank" rel="noopener" x-show="lead.company_domain">
+                  🏢 Firma ansehen
+                </a>
+                <a class="icon-link" :href="lead.linkedin_url" target="_blank" rel="noopener" x-show="lead.linkedin_url">
+                  👤 Person ansehen
+                </a>
+              </div>
+
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+                <div>
+                  <label style="margin-top:0;">Branche</label>
+                  <p x-text="lead.company_industry || '–'"></p>
+                  <label>Firmengröße</label>
+                  <p x-text="lead.company_size || '–'"></p>
+                  <label>Status</label>
+                  <p><span class="badge" :class="'badge-status-' + lead.status" x-text="lead.status"></span></p>
+                </div>
+                <div>
+                  <label style="margin-top:0;">Ansprechperson</label>
+                  <p x-text="(lead.first_name || '') + ' ' + (lead.last_name || '') + (lead.job_title ? ' · ' + lead.job_title : '')"></p>
+                  <label>E-Mail</label>
+                  <p x-text="lead.email || '–'"></p>
+                </div>
+              </div>
+
+              <label>KI-Begründung</label>
+              <p x-text="lead.ai_reasoning || '–'"></p>
+
+              <label>Mehrwert für diesen Lead</label>
+              <p x-text="lead.value_proposition || '–'"></p>
+            </div>
+
+            <template x-if="report">
+              <div class="card">
+                <h2 style="margin-top:0;">Tiefen-Recherche</h2>
+
+                <label style="margin-top:0;">Kurz-Zusammenfassung / aktuelle News</label>
+                <p x-text="report.newsSummary || '–'"></p>
+
+                <label>Kennzahlen</label>
+                <p class="plan-meta" style="margin:0 0 1rem;">
+                  Mitarbeitende: <span x-text="(report.companyKpis && report.companyKpis.employees) || '–'"></span> &middot;
+                  Umsatz: <span x-text="(report.companyKpis && report.companyKpis.revenueRange) || '–'"></span> &middot;
+                  Wachstumssignale: <span x-text="(report.companyKpis && report.companyKpis.growthSignals) || '–'"></span>
+                </p>
+
+                <label>Unternehmensphase</label>
+                <p x-text="report.companyStage || '–'"></p>
+
+                <label>Fit-Einschätzung</label>
+                <p>
+                  <span class="badge" :class="'badge-fit-' + (report.fitCategory || 'none')" x-text="report.fitCategory || '–'"></span>
+                  <span x-text="' ' + (report.fitReasoning || '')"></span>
+                </p>
+
+                <label>Mehrwert-Pitch (vertieft)</label>
+                <p x-text="report.valueProposition || '–'"></p>
+
+                <label>Gesprächsaufhänger</label>
+                <ul style="margin:0.25rem 0 1rem; padding-left:1.2rem;">
+                  <template x-for="point in report.salesTalkingPoints" :key="point">
+                    <li x-text="point"></li>
+                  </template>
+                </ul>
+
+                <label>Quellen</label>
+                <ul style="margin:0.25rem 0 0; padding-left:1.2rem; font-size:0.85rem;">
+                  <template x-for="source in report.sources" :key="source">
+                    <li><a :href="source" target="_blank" rel="noopener" x-text="source"></a></li>
+                  </template>
+                </ul>
+              </div>
+            </template>
+
+            <template x-if="!report">
+              <div class="card" style="text-align:center;">
+                <p class="subtitle" style="margin:0;">Für diesen Lead liegt keine Tiefen-Recherche vor.</p>
+                <p style="margin:0.5rem 0 0; font-weight:600;">Tiefen-Recherche verfügbar ab Team-Paket</p>
+              </div>
+            </template>
           </div>
         </template>
       </div>
-    </template>
+    </div>
   </div>
 
+  <script src="js/sidebar.js"></script>
   <script>
     function leadDetailPage() {
       return {
         profileId: new URLSearchParams(window.location.search).get('profileId'),
         leadId: new URLSearchParams(window.location.search).get('leadId'),
+        user: null,
         lead: null,
         report: null,
+        loading: true,
         error: '',
 
         async init() {
@@ -111,15 +152,25 @@
           }
           if (!this.profileId || !this.leadId) {
             this.error = 'Kein Lead ausgewählt.';
+            this.loading = false;
             return;
           }
           try {
+            const me = await apiFetch('/auth/me');
+            this.user = me.user;
             const data = await apiFetch(`/target-profiles/${this.profileId}/leads/${this.leadId}`);
             this.lead = data.lead;
             this.report = data.report;
           } catch (err) {
             this.error = err.message;
+          } finally {
+            this.loading = false;
           }
+        },
+
+        logout() {
+          auth.clearToken();
+          window.location.href = 'login.html';
         },
       };
     }

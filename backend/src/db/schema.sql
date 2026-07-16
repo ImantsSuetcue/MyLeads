@@ -73,7 +73,8 @@ CREATE TABLE IF NOT EXISTS leads (
   source TEXT NOT NULL DEFAULT 'apollo', -- which provider found this lead
   status TEXT NOT NULL DEFAULT 'new', -- new | contacted | proposal | won | lost
   score TEXT, -- low | medium | high
-  ai_reasoning TEXT,
+  ai_reasoning TEXT, -- fit reasoning: why this lead matches the target profile
+  value_proposition TEXT, -- individual pitch: what our product offers THIS lead specifically
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -166,6 +167,7 @@ CREATE TABLE IF NOT EXISTS lead_reports (
   company_stage TEXT,
   fit_category TEXT, -- low | medium | high
   fit_reasoning TEXT,
+  value_proposition TEXT, -- deeper/refined pitch for this lead, informed by the research
   sales_talking_points TEXT, -- JSON array
   sources TEXT, -- JSON array of URLs actually used
   generated_at TEXT NOT NULL DEFAULT (datetime('now'))

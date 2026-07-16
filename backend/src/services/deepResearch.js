@@ -37,8 +37,8 @@ async function runForSearch(searchRunId) {
       const report = await claudeClient.researchLeadDeep(lead, targetProfile);
       db.prepare(
         `INSERT INTO lead_reports
-          (id, lead_id, news_summary, company_kpis, company_stage, fit_category, fit_reasoning, sales_talking_points, sources)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          (id, lead_id, news_summary, company_kpis, company_stage, fit_category, fit_reasoning, value_proposition, sales_talking_points, sources)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).run(
         newId(),
         lead.id,
@@ -47,6 +47,7 @@ async function runForSearch(searchRunId) {
         report.companyStage,
         report.fitCategory,
         report.fitReasoning,
+        report.valueProposition,
         JSON.stringify(report.salesTalkingPoints || []),
         JSON.stringify(report.sources || [])
       );

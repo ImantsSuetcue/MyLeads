@@ -74,7 +74,10 @@ function mockEnrichLead(lead, targetProfile) {
     `${lead.company_industry || 'passend zur Zielgruppe'} aktiv und die Firmengröße entspricht der gesuchten ` +
     `Zielgruppe. (Mock-Begründung, da MOCK_MODE=true — mit echtem API-Key würde hier eine auf aktuellen ` +
     `Web-Recherchen basierende Begründung stehen.)`;
-  return { reasoning, score };
+  const valueProposition =
+    `Für ${lead.company_name} bietet "${targetProfile.name}" konkret: schnellere Lead-Qualifizierung und weniger ` +
+    `manuelle Recherche für das Vertriebsteam. (Mock-Mehrwert-Pitch, da MOCK_MODE=true.)`;
+  return { reasoning, valueProposition, score };
 }
 
 function mockScrapeCompany(domain) {
@@ -98,6 +101,10 @@ function mockDeepResearch(lead, targetProfile) {
     fitReasoning:
       `${lead.company_name} passt gut zum Zielprofil "${targetProfile.name}", da Größe und Branche der ` +
       `gesuchten Zielgruppe entsprechen. (Mock-Begründung.)`,
+    valueProposition:
+      lead.value_proposition ||
+      `Für ${lead.company_name} bietet "${targetProfile.name}" konkret: schnellere Lead-Qualifizierung und weniger ` +
+        `manuelle Recherche für das Vertriebsteam. (Mock-Mehrwert-Pitch, vertieft.)`,
     salesTalkingPoints: [
       'Frage nach aktuellen Wachstumsplänen für das nächste Quartal.',
       'Beziehe dich auf die zuletzt veröffentlichten Stellenanzeigen als Gesprächseinstieg.',

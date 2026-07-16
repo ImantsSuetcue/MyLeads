@@ -46,7 +46,7 @@
               body: JSON.stringify({ email: this.email, password: this.password }),
             });
             auth.setToken(data.token);
-            window.location.href = 'app.html';
+            window.location.href = 'dashboard.html';
           } catch (err) {
             this.error = err.message;
           } finally {

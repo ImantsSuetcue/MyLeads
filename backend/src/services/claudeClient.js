@@ -133,6 +133,31 @@ async function runWebSearchToText(prompt, maxTokens) {
   return { text, sourceUrls: [...new Set(sourceUrls)] };
 }
 
+const ENRICHMENT_STRUCTURE_TOOL = {
+  name: 'structure_lead_enrichment',
+  description: 'Turn free-text lead research into two separate, structured texts plus a fit score.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      fit_reasoning: {
+        type: 'string',
+        description: 'German, 2-3 sentences: WHY this lead matches the target profile (match criteria, company signals).',
+      },
+      value_proposition: {
+        type: 'string',
+        description:
+          'German, 2-3 sentences: the concrete pitch for THIS specific lead — what value/benefit our product offers ' +
+          'this particular company, tailored to its situation (not a generic product description).',
+      },
+      fit_score: { type: 'string', enum: ['low', 'medium', 'high'] },
+    },
+    required: ['fit_reasoning', 'value_proposition', 'fit_score'],
+  },
+};
+
+// Two-call pattern (web-search prose -> forced-tool structuring), same architecture as
+// researchLeadDeep(). Produces two SEPARATE texts per lead: fit reasoning (why it matches)
+// and a value proposition (what we specifically offer this lead) — not one blended text.
 async function enrichLead(lead, targetProfile) {
   if (env.MOCK_MODE) {
     return mockProviders.mockEnrichLead(lead, targetProfile);
@@ -146,16 +171,32 @@ Company: ${lead.company_name}${lead.company_domain ? ` (${lead.company_domain})`
 Industry: ${lead.company_industry || 'unknown'}
 
 Search the web for brief, current, concrete context on this company (recent news, growth signals, hiring, funding).
-Then write, in German, a short 2-3 sentence explanation of why this lead fits our target profile.
-On a final separate line write exactly one of: FIT: low | FIT: medium | FIT: high.`;
+Then write two things, in German:
+1. Why this lead fits our target profile (match criteria, company signals).
+2. What concrete value/benefit our product offers THIS specific company — an individual pitch, not a generic
+   description of the product.`;
 
-  const { text } = await runWebSearchToText(prompt, 1024);
+  const { text } = await runWebSearchToText(prompt, 1536);
+  const structured = await structureEnrichmentText(text);
 
-  const fitMatch = text.match(/FIT:\s*(low|medium|high)/i);
-  const score = fitMatch ? fitMatch[1].toLowerCase() : 'medium';
-  const reasoning = text.replace(/FIT:\s*(low|medium|high)/i, '').trim();
+  return {
+    reasoning: structured.fit_reasoning || null,
+    valueProposition: structured.value_proposition || null,
+    score: structured.fit_score || 'medium',
+  };
+}
 
-  return { reasoning, score };
+async function structureEnrichmentText(text) {
+  const response = await client.messages.create({
+    model: MODEL,
+    max_tokens: 1024,
+    tools: [ENRICHMENT_STRUCTURE_TOOL],
+    tool_choice: { type: 'tool', name: 'structure_lead_enrichment' },
+    messages: [{ role: 'user', content: `Structure this lead research into fields:\n\n${text}` }],
+  });
+
+  const toolUse = response.content.find((block) => block.type === 'tool_use');
+  return toolUse.input;
 }
 
 const COMPANY_INFO_TOOL = {
@@ -223,6 +264,12 @@ const RESEARCH_STRUCTURE_TOOL = {
       company_stage: { type: 'string', description: 'e.g. "Startup", "Wachstumsphase", "Etabliertes Unternehmen"' },
       fit_category: { type: 'string', enum: ['low', 'medium', 'high'] },
       fit_reasoning: { type: 'string', description: 'German, 1-2 sentences: why this company fits (or not) right now' },
+      value_proposition: {
+        type: 'string',
+        description:
+          'German, 2-3 sentences: a deeper, research-informed pitch for this specific lead — refine/expand the base ' +
+          'value proposition using the news/KPIs/stage found here, don’t just repeat generic product copy.',
+      },
       sales_talking_points: {
         type: 'array',
         items: { type: 'string' },
@@ -260,13 +307,14 @@ To this kind of buyer: ${targetProfile.target_audience || '(see product descript
 Research this company in depth, for a sales team preparing an outreach call:
 Company: ${lead.company_name}${lead.company_domain ? ` (${lead.company_domain})` : ''}
 Industry: ${lead.company_industry || 'unknown'}
-
+${lead.value_proposition ? `\nExisting base-level value proposition for this lead (from an earlier, lighter enrichment step): "${lead.value_proposition}"\n` : ''}
 Search the web and write a thorough report, in German, covering:
 1. Aktuelle Nachrichten/Pressemeldungen der letzten Monate.
 2. Öffentlich verfügbare Kennzahlen (grobe Mitarbeiterzahl, Umsatzgrößenordnung falls öffentlich, Wachstumssignale).
 3. Unternehmensphase (z.B. Startup, Wachstumsphase, etabliertes Unternehmen) anhand von Signalen wie Finanzierungsrunden, Stellenausschreibungen, Neuigkeiten.
 4. Eine klare Fit-Einschätzung (hohe/mittlere/geringe Passung) mit Begründung, warum das Unternehmen gerade jetzt in Frage kommt oder nicht.
-5. 2-3 konkrete Gesprächsaufhänger für einen Sales-Call.
+5. ${lead.value_proposition ? 'Eine vertiefte/verfeinerte Version des Mehrwert-Pitches oben, angereichert mit den hier gefundenen Signalen.' : 'Einen individuellen Mehrwert-Pitch: welchen konkreten Nutzen unser Produkt genau diesem Unternehmen bietet.'}
+6. 2-3 konkrete Gesprächsaufhänger für einen Sales-Call.
 
 Write flowing prose with a clear paragraph per topic, not a form.`;
 
@@ -279,6 +327,7 @@ Write flowing prose with a clear paragraph per topic, not a form.`;
     companyStage: structured.company_stage || null,
     fitCategory: structured.fit_category || null,
     fitReasoning: structured.fit_reasoning || null,
+    valueProposition: structured.value_proposition || lead.value_proposition || null,
     salesTalkingPoints: structured.sales_talking_points || [],
     sources: sourceUrls.length ? sourceUrls : [],
   };

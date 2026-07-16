@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Team - MyLeads</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="js/api.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body>
+  <div class="app-shell" x-data="teamPage()" x-init="init()">
+    <aside class="sidebar">
+      <div>
+        <div class="sidebar-brand">MyLeads</div>
+        <nav class="sidebar-nav">
+          <a href="dashboard.html">Dashboard</a>
+          <a href="app.html">Suchanfragen</a>
+          <a href="leads.html">Leads</a>
+          <a href="team.html">Team</a>
+          <a href="settings.html">Einstellungen</a>
+        </nav>
+      </div>
+      <div class="sidebar-footer">
+        <span class="user-email" x-text="user && user.email"></span>
+        <button class="btn-ghost" style="width:100%;" @click="logout()">Logout</button>
+      </div>
+    </aside>
+
+    <div class="main-content">
+      <div class="page">
+        <h1>Team</h1>
+        <div class="card">
+          <p class="subtitle" style="margin:0 0 0.5rem;">
+            Mitarbeitende einladen, Gruppen anlegen und Listen/Boards freischalten kommt in Phase 3.
+          </p>
+          <p class="subtitle" style="margin:0;">
+            Geplant: Einladungen im Rahmen der gebuchten Lizenzanzahl, Gruppen mit Standard-Freischaltung,
+            und individuelle Zugriffsrechte pro Zielprofil.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/sidebar.js"></script>
+  <script>
+    function teamPage() {
+      return {
+        user: null,
+        async init() {
+          if (!auth.isLoggedIn()) {
+            window.location.href = 'login.html';
+            return;
+          }
+          try {
+            const me = await apiFetch('/auth/me');
+            this.user = me.user;
+          } catch (err) {
+            // Non-fatal on a placeholder page.
+          }
+        },
+        logout() {
+          auth.clearToken();
+          window.location.href = 'login.html';
+        },
+      };
+    }
+  </script>
+</body>
+</html>

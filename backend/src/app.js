@@ -7,6 +7,7 @@ const { router: billingRoutes, webhookHandler } = require('./routes/billing');
 const targetProfilesRoutes = require('./routes/targetProfiles');
 const searchesRoutes = require('./routes/searches');
 const leadsRoutes = require('./routes/leads');
+const allLeadsRoutes = require('./routes/allLeads');
 const platformAdminRoutes = require('./routes/platformAdmin');
 
 const app = express();
@@ -33,6 +34,7 @@ app.use('/api/billing', billingRoutes);
 app.use('/api/target-profiles', targetProfilesRoutes);
 app.use('/api/target-profiles/:profileId/searches', searchesRoutes);
 app.use('/api/target-profiles/:profileId/leads', leadsRoutes);
+app.use('/api/leads', allLeadsRoutes);
 app.use('/api/platform-admin', platformAdminRoutes);
 
 module.exports = app;

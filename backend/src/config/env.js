@@ -18,7 +18,16 @@ module.exports = {
   NODE_ENV: process.env.NODE_ENV || 'development',
   DB_FILE: path.join(__dirname, '..', '..', 'data', process.env.DB_FILE_NAME || 'myleads.db'),
   JWT_SECRET: required('JWT_SECRET', 'dev-only-insecure-secret-change-me'),
+  // CORS_ORIGIN must be scheme+host+port only (browsers never send a path in the
+  // Origin header) — e.g. http://127.0.0.1:5500, NOT .../frontend.
   CORS_ORIGIN: process.env.CORS_ORIGIN || '*',
+
+  // Base URL used to build links back to the frontend (mock Stripe checkout page,
+  // real Stripe success/cancel URLs). Unlike CORS_ORIGIN this MAY include a path —
+  // set it to wherever Live Server actually serves index.html from. If you open
+  // frontend/index.html directly with VS Code's Live Server, it serves from the
+  // project root, so the default below (with the /frontend suffix) is correct.
+  FRONTEND_BASE_URL: process.env.FRONTEND_BASE_URL || 'http://127.0.0.1:5500/frontend',
 
   // When true, claudeClient/apolloClient/stripeClient return fake data instead of
   // calling real APIs. Lets the whole app be built and tested before real keys exist.

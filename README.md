@@ -24,9 +24,15 @@ Check it worked: open http://localhost:3000/api/health — should show `{"ok":tr
 
 ### 2. Frontend
 
-Open the `/frontend` folder in VS Code and start `index.html` with the "Live Server" extension
-(usually runs on http://127.0.0.1:5500). The frontend talks to the backend via `fetch()` calls
-defined in `frontend/js/api.js`.
+Open the project folder (not just `/frontend`) in VS Code and start `frontend/index.html` with the
+"Live Server" extension (usually runs on http://127.0.0.1:5500, serving from the project root — so
+pages are reached at e.g. `http://127.0.0.1:5500/frontend/index.html`). The frontend talks to the
+backend via `fetch()` calls defined in `frontend/js/api.js`.
+
+If Live Server serves from a different root on your machine (e.g. you open the `/frontend` folder
+directly as its own workspace), update `FRONTEND_BASE_URL` in `backend/.env` to match — it's used
+to build the (mock) Stripe checkout link, so it has to point at wherever `index.html` actually loads
+from.
 
 ## Mock Mode (no API keys needed to start)
 
@@ -65,8 +71,19 @@ Two extra backend services complement Apollo:
   domain to the suppression list, deletes its cached scraped data, and clears any lead fields that
   came from that scrape.
 
+## Design System & Navigation
+
+`frontend/css/style.css` defines the whole visual language as CSS custom properties (colors,
+spacing, type scale, badge/status colors) plus reusable component classes (`.card`, `.badge-*`,
+`.btn-*`, `.data-table`, `.skeleton`, `.stat-card`) — change the tokens once, every page updates.
+
+Every logged-in page shares one sidebar (`Dashboard` / `Suchanfragen` / `Leads` / `Team` /
+`Einstellungen`), with the active link highlighted automatically by `frontend/js/sidebar.js`.
+`Team` and `Einstellungen` are honest placeholders for now — the real features land in Phase 3.
+
 ## Project Status
 
 Being built phase by phase (see the plan). Phase 1 (core Lead-Finder) and Phase 2 (compliance
-scraper + deep research) are done. This README will grow with setup instructions for each new
-phase (roles/teams, billing UI, CRM features, email) as they're built.
+scraper + deep research) are done, plus the design-system pass (sidebar navigation, cross-profile
+Leads view, per-lead value proposition + company/person links). This README will grow with setup
+instructions for each new phase (roles/teams, billing UI, CRM features, email) as they're built.
