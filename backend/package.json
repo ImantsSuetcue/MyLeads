@@ -1,0 +1,25 @@
+{
+  "name": "myleads-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MyLeads backend API (Express + node:sqlite)",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "migrate": "node src/db/migrate.js",
+    "seed:admin": "node seed-platform-admin.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "robots-parser": "^3.0.1",
+    "stripe": "^17.3.1"
+  }
+}

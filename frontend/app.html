@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MyLeads - Übersicht</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="js/api.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body>
+  <div class="page" x-data="appShell()" x-init="init()">
+    <div class="top-nav">
+      <h1 style="margin:0;">MyLeads</h1>
+      <button class="btn-secondary" @click="logout()">Logout</button>
+    </div>
+
+    <div class="card" x-show="!loading && user">
+      <p>Eingeloggt als <strong x-text="user && user.email"></strong> (<span x-text="user && user.role"></span>)</p>
+      <template x-if="organization">
+        <p>
+          Firma: <strong x-text="organization.name"></strong> &middot; Plan: <span x-text="organization.plan"></span>
+          &middot;
+          <span class="badge" :class="organization.subscription_status === 'active' ? 'badge-active' : 'badge-pending'"
+                x-text="organization.subscription_status"></span>
+        </p>
+      </template>
+    </div>
+
+    <div class="top-nav" style="margin-top:1.5rem;">
+      <h2 style="margin:0;">Zielprofile</h2>
+      <a href="new-search.html"><button class="btn-primary" style="margin:0;">+ Neues Zielprofil</button></a>
+    </div>
+
+    <p class="subtitle" x-show="!loading && targetProfiles.length === 0">
+      Noch keine Zielprofile angelegt. Beschreibe dein Produkt und deine Zielgruppe, um deine erste Lead-Suche zu starten.
+    </p>
+
+    <div class="card" style="margin-bottom:0.75rem;" x-show="!loading && targetProfiles.length > 0">
+      <template x-for="profile in targetProfiles" :key="profile.id">
+        <a :href="'target-profile.html?id=' + profile.id" style="display:block; padding:0.75rem 0; border-bottom:1px solid var(--color-border); text-decoration:none; color:inherit;">
+          <strong x-text="profile.name"></strong>
+          <p class="subtitle" style="margin:0.25rem 0;" x-text="profile.product_description"></p>
+          <p class="plan-meta" style="margin:0;">Angelegt am <span x-text="profile.created_at"></span></p>
+        </a>
+      </template>
+    </div>
+
+    <div class="error-box" x-show="error" x-text="error"></div>
+  </div>
+
+  <script>
+    function appShell() {
+      return {
+        user: null,
+        organization: null,
+        targetProfiles: [],
+        loading: true,
+        error: '',
+        async init() {
+          if (!auth.isLoggedIn()) {
+            window.location.href = 'login.html';
+            return;
+          }
+          try {
+            const me = await apiFetch('/auth/me');
+            this.user = me.user;
+            this.organization = me.organization;
+            const profiles = await apiFetch('/target-profiles');
+            this.targetProfiles = profiles.targetProfiles;
+          } catch (err) {
+            this.error = err.message;
+          } finally {
+            this.loading = false;
+          }
+        },
+        logout() {
+          auth.clearToken();
+          window.location.href = 'login.html';
+        },
+      };
+    }
+  </script>
+</body>
+</html>

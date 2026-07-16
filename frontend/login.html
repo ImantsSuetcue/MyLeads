@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login - MyLeads</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="js/api.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body>
+  <div class="center-page">
+    <div class="card card-narrow" x-data="loginForm()">
+      <h1>Login</h1>
+      <p class="subtitle">Melde dich bei deinem MyLeads-Konto an.</p>
+
+      <label>E-Mail</label>
+      <input type="email" x-model="email" @keydown.enter="submit()" />
+
+      <label>Passwort</label>
+      <input type="password" x-model="password" @keydown.enter="submit()" />
+
+      <button class="btn-primary" :disabled="loading" @click="submit()">
+        <span x-text="loading ? 'Anmelden…' : 'Anmelden'"></span>
+      </button>
+
+      <div class="error-box" x-show="error" x-text="error"></div>
+
+      <div class="link-row"><a href="register.html">Noch keine Firma? Registrieren</a></div>
+    </div>
+  </div>
+
+  <script>
+    function loginForm() {
+      return {
+        email: '',
+        password: '',
+        loading: false,
+        error: '',
+        async submit() {
+          this.error = '';
+          this.loading = true;
+          try {
+            const data = await apiFetch('/auth/login', {
+              method: 'POST',
+              body: JSON.stringify({ email: this.email, password: this.password }),
+            });
+            auth.setToken(data.token);
+            window.location.href = 'app.html';
+          } catch (err) {
+            this.error = err.message;
+          } finally {
+            this.loading = false;
+          }
+        },
+      };
+    }
+  </script>
+</body>
+</html>

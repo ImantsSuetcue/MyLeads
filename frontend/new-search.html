@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Neues Zielprofil - MyLeads</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="js/api.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body>
+  <div class="page" x-data="newProfileForm()" x-init="init()">
+    <div class="top-nav">
+      <h1 style="margin:0;">Neues Zielprofil</h1>
+      <a href="app.html"><button class="btn-secondary">Zurück</button></a>
+    </div>
+
+    <div class="card card-wide" x-show="!loading">
+      <template x-if="!isManager">
+        <div class="error-box">Nur Manager können neue Zielprofile/Suchanfragen anlegen.</div>
+      </template>
+
+      <template x-if="isManager">
+        <div>
+          <p class="subtitle">Beschreibe Produkt, Zielgruppe und Vertriebsziele in eigenen Worten. Das System übersetzt das automatisch in Suchkriterien.</p>
+
+          <label>Name des Zielprofils</label>
+          <input type="text" x-model="form.name" placeholder="z.B. DACH SaaS Entscheider Q3" />
+
+          <label>Produktbeschreibung</label>
+          <textarea x-model="form.product_description" rows="3" placeholder="Was verkauft ihr, und welches Problem löst es?"></textarea>
+
+          <label>Zielgruppe</label>
+          <textarea x-model="form.target_audience" rows="2" placeholder="Welche Firmen/Personen sollen angesprochen werden?"></textarea>
+
+          <label>Region</label>
+          <input type="text" x-model="form.region" placeholder="z.B. Deutschland, Österreich, Schweiz" />
+
+          <label>Branche</label>
+          <input type="text" x-model="form.industry" placeholder="z.B. SaaS, E-Commerce, Fertigung" />
+
+          <label>Gewünschte Ansprechpartner-Rolle</label>
+          <input type="text" x-model="form.contact_role" placeholder="z.B. Head of Sales, CTO" />
+
+          <label>Vertriebsziele</label>
+          <textarea x-model="form.goals" rows="2" placeholder="Was soll mit den Leads erreicht werden?"></textarea>
+
+          <button class="btn-primary" :disabled="saving" @click="submit()">
+            <span x-text="saving ? 'Wird gespeichert…' : 'Zielprofil speichern'"></span>
+          </button>
+
+          <div class="error-box" x-show="error" x-text="error"></div>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <script>
+    function newProfileForm() {
+      return {
+        loading: true,
+        saving: false,
+        error: '',
+        isManager: false,
+        form: {
+          name: '', product_description: '', target_audience: '',
+          region: '', industry: '', contact_role: '', goals: '',
+        },
+        async init() {
+          if (!auth.isLoggedIn()) {
+            window.location.href = 'login.html';
+            return;
+          }
+          try {
+            const me = await apiFetch('/auth/me');
+            this.isManager = me.user.role === 'manager';
+          } catch (err) {
+            this.error = err.message;
+          } finally {
+            this.loading = false;
+          }
+        },
+        async submit() {
+          this.error = '';
+          if (!this.form.name || !this.form.product_description) {
+            this.error = 'Name und Produktbeschreibung sind Pflichtfelder.';
+            return;
+          }
+          this.saving = true;
+          try {
+            await apiFetch('/target-profiles', { method: 'POST', body: JSON.stringify(this.form) });
+            window.location.href = 'app.html';
+          } catch (err) {
+            this.error = err.message;
+          } finally {
+            this.saving = false;
+          }
+        },
+      };
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Registrieren - MyLeads</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="js/api.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body>
+  <div class="center-page">
+    <div class="card card-wide" x-data="registerForm()" x-init="loadPlans()">
+      <h1>Firma registrieren</h1>
+      <p class="subtitle">Erster Nutzer wird automatisch Manager Ihrer Organisation.</p>
+
+      <label>Firmenname</label>
+      <input type="text" x-model="form.companyName" placeholder="Musterfirma GmbH" />
+
+      <label>Abo-Plan</label>
+      <div class="plan-grid">
+        <template x-for="p in plans" :key="p.key">
+          <div class="plan-card" :class="{ selected: form.plan === p.key }" @click="form.plan = p.key">
+            <div class="plan-name" x-text="p.label"></div>
+            <div class="plan-price" x-text="p.monthlyPriceEur + ' EUR / Monat'"></div>
+            <div class="plan-meta" x-text="p.includedLicenses + ' Lizenzen'"></div>
+            <div class="plan-meta" x-text="p.searchQuotaMonthly + ' Leads/Monat'"></div>
+          </div>
+        </template>
+      </div>
+
+      <label>Ihr Name</label>
+      <input type="text" x-model="form.fullName" placeholder="Max Mustermann" />
+
+      <label>E-Mail</label>
+      <input type="email" x-model="form.email" placeholder="max@musterfirma.de" />
+
+      <label>Passwort (mind. 8 Zeichen)</label>
+      <input type="password" x-model="form.password" />
+
+      <button class="btn-primary" :disabled="loading" @click="submit()">
+        <span x-text="loading ? 'Wird angelegt…' : 'Registrieren & zur Kasse'"></span>
+      </button>
+
+      <div class="error-box" x-show="error" x-text="error"></div>
+
+      <div class="link-row"><a href="login.html">Bereits registriert? Login</a></div>
+    </div>
+  </div>
+
+  <script>
+    function registerForm() {
+      return {
+        plans: [],
+        loading: false,
+        error: '',
+        form: { companyName: '', plan: 'starter', fullName: '', email: '', password: '' },
+
+        async loadPlans() {
+          try {
+            const data = await apiFetch('/plans');
+            this.plans = data.plans;
+          } catch (err) {
+            this.error = err.message;
+          }
+        },
+
+        async submit() {
+          this.error = '';
+          if (!this.form.companyName || !this.form.email || !this.form.password) {
+            this.error = 'Bitte alle Pflichtfelder ausfüllen.';
+            return;
+          }
+          this.loading = true;
+          try {
+            const data = await apiFetch('/auth/register', {
+              method: 'POST',
+              body: JSON.stringify(this.form),
+            });
+            auth.setToken(data.token);
+            window.location.href = data.checkoutUrl;
+          } catch (err) {
+            this.error = err.message;
+          } finally {
+            this.loading = false;
+          }
+        },
+      };
+    }
+  </script>
+</body>
+</html>
