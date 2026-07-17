@@ -31,23 +31,49 @@
       <div class="page">
         <h1>Einstellungen</h1>
 
+        <div class="error-box" x-show="error" x-text="error"></div>
+
         <div class="card" x-show="organization" style="margin-bottom:1.5rem;">
           <p style="margin:0 0 0.35rem;">
             Plan: <strong x-text="organization && organization.plan"></strong> &middot;
             <span class="badge" :class="organization && organization.subscription_status === 'active' ? 'badge-active' : 'badge-pending'"
                   x-text="organization && organization.subscription_status"></span>
           </p>
-          <p class="plan-meta" style="margin:0;">Lizenzen: <span x-text="organization && organization.license_count"></span></p>
+          <p class="plan-meta" style="margin:0;">Lizenzen: <span x-text="usedLicenses"></span> von <span x-text="organization && organization.license_count"></span> genutzt</p>
         </div>
 
-        <div class="card">
-          <p class="subtitle" style="margin:0 0 0.5rem;">
-            Abo wechseln, Lizenzen dazubuchen und das Stripe Billing Portal öffnen kommt in Phase 3.
-          </p>
-          <p class="subtitle" style="margin:0;">
-            Bis dahin lässt sich der Plan direkt in der Datenbank bzw. über die Platform-Admin-API anpassen.
-          </p>
-        </div>
+        <template x-if="!isManager">
+          <div class="card">
+            <p class="subtitle" style="margin:0;">Lizenzen dazubuchen und das Abo verwalten kann nur ein Manager.</p>
+          </div>
+        </template>
+
+        <template x-if="isManager">
+          <div>
+            <h2>Lizenzen dazubuchen</h2>
+            <div class="card card-wide" style="margin-bottom:1.5rem;">
+              <p class="subtitle" style="margin:0 0 0.75rem;">
+                <span x-text="extraLicensePriceEur"></span>€ pro zusätzlicher Lizenz/Monat.
+              </p>
+              <label style="margin-top:0;">Anzahl zusätzlicher Lizenzen</label>
+              <input type="text" x-model="additionalLicenses" placeholder="z.B. 5" style="max-width:160px;" />
+              <p class="plan-meta" style="margin:0.5rem 0 0;" x-show="additionalLicensesCost">
+                Kosten: <strong x-text="additionalLicensesCost"></strong> €/Monat
+              </p>
+              <button class="btn-primary" style="max-width:280px;" :disabled="buyingLicenses" @click="buyLicenses()">
+                <span x-text="buyingLicenses ? 'Wird vorbereitet…' : 'Lizenzen kaufen'"></span>
+              </button>
+            </div>
+
+            <h2>Abo verwalten</h2>
+            <div class="card card-wide">
+              <p class="subtitle" style="margin:0 0 0.75rem;">Plan wechseln, herunterstufen oder kündigen.</p>
+              <button class="btn-secondary" :disabled="openingPortal" @click="openPortal()">
+                <span x-text="openingPortal ? 'Wird geöffnet…' : 'Billing Portal öffnen'"></span>
+              </button>
+            </div>
+          </div>
+        </template>
       </div>
     </div>
   </div>
@@ -58,6 +84,19 @@
       return {
         user: null,
         organization: null,
+        isManager: false,
+        usedLicenses: 0,
+        extraLicensePriceEur: 0,
+        additionalLicenses: '',
+        buyingLicenses: false,
+        openingPortal: false,
+        error: '',
+
+        get additionalLicensesCost() {
+          const n = Number(this.additionalLicenses);
+          return n > 0 ? n * this.extraLicensePriceEur : 0;
+        },
+
         async init() {
           if (!auth.isLoggedIn()) {
             window.location.href = 'login.html';
@@ -67,10 +106,55 @@
             const me = await apiFetch('/auth/me');
             this.user = me.user;
             this.organization = me.organization;
+            this.isManager = me.user.role === 'manager';
+
+            const plansData = await apiFetch('/plans');
+            const planDef = plansData.plans.find((p) => p.key === (this.organization && this.organization.plan));
+            this.extraLicensePriceEur = planDef ? planDef.extraLicensePriceEur : 0;
+
+            if (this.organization) {
+              const teamData = await apiFetch('/team/users');
+              this.usedLicenses = teamData.usedLicenses;
+            }
           } catch (err) {
-            // Non-fatal on a placeholder page.
+            // Non-fatal — page still shows what it has.
           }
         },
+
+        async buyLicenses() {
+          this.error = '';
+          const n = Number(this.additionalLicenses);
+          if (!Number.isInteger(n) || n <= 0) {
+            this.error = 'Bitte eine positive Anzahl an Lizenzen eingeben.';
+            return;
+          }
+          this.buyingLicenses = true;
+          try {
+            const data = await apiFetch('/billing/licenses/checkout', {
+              method: 'POST',
+              body: JSON.stringify({ additionalLicenses: n }),
+            });
+            window.location.href = data.checkoutUrl;
+          } catch (err) {
+            this.error = err.message;
+          } finally {
+            this.buyingLicenses = false;
+          }
+        },
+
+        async openPortal() {
+          this.error = '';
+          this.openingPortal = true;
+          try {
+            const data = await apiFetch('/billing/portal', { method: 'POST' });
+            window.location.href = data.url;
+          } catch (err) {
+            this.error = err.message;
+          } finally {
+            this.openingPortal = false;
+          }
+        },
+
         logout() {
           auth.clearToken();
           window.location.href = 'login.html';

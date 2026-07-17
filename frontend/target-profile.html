@@ -32,7 +32,7 @@
         <a href="app.html" class="link-row" style="margin:0 0 0.5rem; text-align:left; display:block;">&larr; Zurück zu Suchanfragen</a>
         <div class="top-nav">
           <h1 style="margin:0;" x-text="profile ? profile.name : 'Lädt…'"></h1>
-          <button class="btn-primary" style="margin:0;" :disabled="searching" @click="startSearch()">
+          <button class="btn-primary" style="margin:0;" :disabled="searching" @click="startSearch()" x-show="isManager">
             <span x-text="searching ? 'Suche läuft…' : (searchRuns.length ? 'Suche wiederholen' : 'Suche starten')"></span>
           </button>
         </div>
@@ -48,6 +48,56 @@
         </div>
 
         <div class="error-box" x-show="error" x-text="error"></div>
+
+        <template x-if="isManager">
+          <div style="margin-bottom:1.5rem;">
+            <button class="btn-secondary" @click="showAccessPanel = !showAccessPanel; if (showAccessPanel) loadAccess()">
+              <span x-text="showAccessPanel ? 'Zugriff schließen' : 'Zugriff verwalten'"></span>
+            </button>
+
+            <div class="card" style="margin-top:0.75rem;" x-show="showAccessPanel">
+              <h2 style="margin-top:0;">Wer sieht diese Liste?</h2>
+              <p class="subtitle">Manager sehen immer alles. Team-Mitglieder sehen nur Listen, die hier freigeschaltet sind.</p>
+
+              <div style="margin-bottom:1rem;">
+                <template x-for="grant in permissions" :key="grant.id">
+                  <span class="badge" :class="grant.group_id ? 'badge-status-new' : 'badge-status-contacted'" style="margin:0 0.4rem 0.4rem 0; display:inline-flex; align-items:center; gap:0.35rem; padding:0.3rem 0.7rem;">
+                    <span x-text="grant.group_id ? ('Gruppe: ' + grant.group_name + (grant.is_default_for_group ? ' (Standard)' : '')) : ('Person: ' + (grant.user_full_name || grant.user_email))"></span>
+                    <a href="#" style="text-decoration:none;" @click.prevent="revokeAccess(grant)">×</a>
+                  </span>
+                </template>
+                <p class="subtitle" x-show="!permissions.length" style="margin:0;">Noch niemand hat expliziten Zugriff (nur Manager sehen diese Liste).</p>
+              </div>
+
+              <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:end;">
+                <div>
+                  <label style="margin-top:0;">Einzelne Person freischalten</label>
+                  <select x-model="selectedUserId">
+                    <option value="">Person wählen…</option>
+                    <template x-for="u in teamUsers" :key="u.id">
+                      <option :value="u.id" x-text="u.full_name || u.email"></option>
+                    </template>
+                  </select>
+                </div>
+                <button class="btn-secondary" @click="grantUser()">+ Person</button>
+
+                <div>
+                  <label style="margin-top:0;">Gruppe freischalten</label>
+                  <select x-model="selectedGroupId">
+                    <option value="">Gruppe wählen…</option>
+                    <template x-for="g in teamGroups" :key="g.id">
+                      <option :value="g.id" x-text="g.name"></option>
+                    </template>
+                  </select>
+                </div>
+                <label style="margin:0; display:flex; align-items:center; gap:0.35rem; font-weight:400;">
+                  <input type="checkbox" x-model="groupIsDefault" style="width:auto;" /> Standard für Gruppe
+                </label>
+                <button class="btn-secondary" @click="grantGroup()">+ Gruppe</button>
+              </div>
+            </div>
+          </div>
+        </template>
 
         <h2>Suchverlauf</h2>
 
@@ -80,6 +130,31 @@
           </table>
         </div>
         <p class="subtitle" x-show="!loading && !searchRuns.length">Noch keine Suche gestartet.</p>
+
+        <template x-if="isManager && selectedRunId && runKpis">
+          <div class="stat-grid" style="margin-bottom:1.5rem;">
+            <div class="stat-card">
+              <div class="stat-label">Leads</div>
+              <div class="stat-value" x-text="runKpis.leadsFound"></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Unternehmen</div>
+              <div class="stat-value" x-text="runKpis.companiesFound"></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Mit Ansprechpartner</div>
+              <div class="stat-value" x-text="runKpis.companiesWithContact"></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Mit E-Mail</div>
+              <div class="stat-value" x-text="runKpis.leadsWithEmail"></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Mit Telefondurchwahl</div>
+              <div class="stat-value" x-text="runKpis.leadsWithPhone"></div>
+            </div>
+          </div>
+        </template>
 
         <h2>Leads <span x-show="selectedRunId" class="plan-meta">(aus ausgewähltem Suchlauf)</span></h2>
 
@@ -149,6 +224,15 @@
         error: '',
         searchQuery: '',
         fitFilter: '',
+        isManager: false,
+        showAccessPanel: false,
+        permissions: [],
+        teamUsers: [],
+        teamGroups: [],
+        selectedUserId: '',
+        selectedGroupId: '',
+        groupIsDefault: false,
+        runKpis: null,
 
         get filteredLeads() {
           const q = this.searchQuery.trim().toLowerCase();
@@ -176,6 +260,7 @@
           try {
             const me = await apiFetch('/auth/me');
             this.user = me.user;
+            this.isManager = me.user.role === 'manager';
           } catch (err) {
             this.error = err.message;
           }
@@ -213,6 +298,13 @@
           } catch (err) {
             this.error = err.message;
           }
+          if (this.isManager) {
+            try {
+              this.runKpis = await apiFetch(`/dashboard/kpis?searchRunId=${runId}`);
+            } catch (err) {
+              this.runKpis = null;
+            }
+          }
         },
 
         async startSearch() {
@@ -238,6 +330,59 @@
 
         openLead(leadId) {
           window.location.href = `lead-detail.html?profileId=${this.profileId}&leadId=${leadId}`;
+        },
+
+        async loadAccess() {
+          try {
+            const [permData, usersData, groupsData] = await Promise.all([
+              apiFetch(`/target-profiles/${this.profileId}/permissions`),
+              apiFetch('/team/users'),
+              apiFetch('/team/groups'),
+            ]);
+            this.permissions = permData.permissions;
+            this.teamUsers = usersData.users;
+            this.teamGroups = groupsData.groups;
+          } catch (err) {
+            this.error = err.message;
+          }
+        },
+
+        async grantUser() {
+          if (!this.selectedUserId) return;
+          try {
+            await apiFetch(`/target-profiles/${this.profileId}/permissions`, {
+              method: 'POST',
+              body: JSON.stringify({ userId: this.selectedUserId }),
+            });
+            this.selectedUserId = '';
+            await this.loadAccess();
+          } catch (err) {
+            this.error = err.message;
+          }
+        },
+
+        async grantGroup() {
+          if (!this.selectedGroupId) return;
+          try {
+            await apiFetch(`/target-profiles/${this.profileId}/permissions`, {
+              method: 'POST',
+              body: JSON.stringify({ groupId: this.selectedGroupId, isDefaultForGroup: this.groupIsDefault }),
+            });
+            this.selectedGroupId = '';
+            this.groupIsDefault = false;
+            await this.loadAccess();
+          } catch (err) {
+            this.error = err.message;
+          }
+        },
+
+        async revokeAccess(grant) {
+          try {
+            await apiFetch(`/target-profiles/${this.profileId}/permissions/${grant.id}`, { method: 'DELETE' });
+            await this.loadAccess();
+          } catch (err) {
+            this.error = err.message;
+          }
         },
 
         logout() {

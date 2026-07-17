@@ -3,6 +3,7 @@ const db = require('../db/db');
 const { newId } = require('../utils/ids');
 const { requireAuth } = require('../middleware/auth');
 const { requireRole } = require('../middleware/requireRole');
+const { canAccessProfile } = require('../services/listAccess');
 const leadFinder = require('../services/leadFinder');
 
 // Mounted at /api/target-profiles/:profileId/searches — mergeParams gives us :profileId.
@@ -28,6 +29,9 @@ router.get('/', (req, res) => {
   if (!profile) {
     return res.status(404).json({ error: 'Target profile not found' });
   }
+  if (!canAccessProfile({ userId: req.user.sub, role: req.user.role, targetProfileId: profile.id })) {
+    return res.status(403).json({ error: 'No access to this list' });
+  }
   const runs = db
     .prepare('SELECT * FROM search_runs WHERE target_profile_id = ? ORDER BY started_at DESC')
     .all(profile.id);
@@ -38,6 +42,9 @@ router.get('/:runId', (req, res) => {
   const profile = findProfile(req);
   if (!profile) {
     return res.status(404).json({ error: 'Target profile not found' });
+  }
+  if (!canAccessProfile({ userId: req.user.sub, role: req.user.role, targetProfileId: profile.id })) {
+    return res.status(403).json({ error: 'No access to this list' });
   }
   const run = db
     .prepare('SELECT * FROM search_runs WHERE id = ? AND target_profile_id = ?')

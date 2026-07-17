@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db/db');
 const { requireAuth } = require('../middleware/auth');
+const { canAccessProfile } = require('../services/listAccess');
 
 // Mounted at /api/target-profiles/:profileId/leads — mergeParams gives us :profileId.
 const router = express.Router({ mergeParams: true });
@@ -22,6 +23,9 @@ router.get('/', (req, res) => {
     .get(req.params.profileId, req.user.organizationId);
   if (!profile) {
     return res.status(404).json({ error: 'Target profile not found' });
+  }
+  if (!canAccessProfile({ userId: req.user.sub, role: req.user.role, targetProfileId: profile.id })) {
+    return res.status(403).json({ error: 'No access to this list' });
   }
 
   const params = [profile.id];
@@ -58,6 +62,9 @@ router.get('/:leadId', (req, res) => {
 
   if (!lead) {
     return res.status(404).json({ error: 'Lead not found' });
+  }
+  if (!canAccessProfile({ userId: req.user.sub, role: req.user.role, targetProfileId: lead.target_profile_id })) {
+    return res.status(403).json({ error: 'No access to this list' });
   }
 
   const reportRow = db.prepare('SELECT * FROM lead_reports WHERE lead_id = ?').get(lead.id);

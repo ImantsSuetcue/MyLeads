@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Test-Billing-Portal - MyLeads</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="js/api.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body>
+  <div class="center-page">
+    <div class="card card-wide" x-data="mockBillingPortal()" x-init="init()">
+      <div class="mock-banner">TEST-MODUS: Simuliertes Stripe Billing Portal (MOCK_MODE=true).</div>
+      <h1>Abo verwalten</h1>
+      <p class="subtitle">Aktueller Plan: <strong x-text="currentPlan"></strong></p>
+
+      <div class="plan-grid" style="margin-bottom:1rem;">
+        <template x-for="p in plans" :key="p.key">
+          <div class="plan-card" :class="{ selected: selectedPlan === p.key }" @click="selectedPlan = p.key">
+            <div class="plan-name" x-text="p.label"></div>
+            <div class="plan-price" x-text="p.monthlyPriceEur + ' €/Monat'"></div>
+            <div class="plan-meta" x-text="p.includedLicenses + ' Lizenzen'"></div>
+            <div class="plan-meta" x-text="p.searchQuotaMonthly + ' Leads/Monat'"></div>
+          </div>
+        </template>
+      </div>
+
+      <button class="btn-primary" :disabled="loading" @click="changePlan()">
+        <span x-text="loading ? 'Wird gewechselt…' : 'Plan wechseln'"></span>
+      </button>
+
+      <button class="btn-ghost" style="width:100%; margin-top:0.75rem;" :disabled="loading" @click="cancelSubscription()">
+        Abo kündigen
+      </button>
+
+      <div style="margin-top:0.75rem; text-align:center;">
+        <a href="settings.html" class="link-row">Zurück ohne Änderung</a>
+      </div>
+
+      <div class="error-box" x-show="error" x-text="error"></div>
+    </div>
+  </div>
+
+  <script>
+    function mockBillingPortal() {
+      return {
+        orgId: '',
+        currentPlan: '',
+        selectedPlan: '',
+        plans: [],
+        loading: false,
+        error: '',
+
+        async init() {
+          const params = new URLSearchParams(window.location.search);
+          this.orgId = params.get('org_id') || '';
+          this.currentPlan = params.get('plan') || '';
+          this.selectedPlan = this.currentPlan;
+          try {
+            const data = await apiFetch('/plans');
+            this.plans = data.plans;
+          } catch (err) {
+            this.error = err.message;
+          }
+        },
+
+        async changePlan() {
+          this.error = '';
+          this.loading = true;
+          try {
+            await apiFetch('/billing/mock-change-plan', {
+              method: 'POST',
+              body: JSON.stringify({ organizationId: this.orgId, plan: this.selectedPlan }),
+            });
+            window.location.href = 'settings.html?billing=plan-changed';
+          } catch (err) {
+            this.error = err.message;
+          } finally {
+            this.loading = false;
+          }
+        },
+
+        async cancelSubscription() {
+          if (!confirm('Abo wirklich kündigen?')) return;
+          this.error = '';
+          this.loading = true;
+          try {
+            await apiFetch('/billing/mock-change-plan', {
+              method: 'POST',
+              body: JSON.stringify({ organizationId: this.orgId, cancel: true }),
+            });
+            window.location.href = 'settings.html?billing=canceled';
+          } catch (err) {
+            this.error = err.message;
+          } finally {
+            this.loading = false;
+          }
+        },
+      };
+    }
+  </script>
+</body>
+</html>

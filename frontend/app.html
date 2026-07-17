@@ -31,7 +31,7 @@
       <div class="page">
         <div class="top-nav">
           <h1 style="margin:0;">Suchanfragen</h1>
-          <a href="new-search.html"><button class="btn-primary" style="margin:0;" x-show="!isPlatformAdmin">+ Neues Zielprofil</button></a>
+          <a href="new-search.html"><button class="btn-primary" style="margin:0;" x-show="isManager">+ Neues Zielprofil</button></a>
         </div>
 
         <template x-if="loading">
@@ -99,6 +99,7 @@
         organization: null,
         targetProfiles: [],
         isPlatformAdmin: false,
+        isManager: false,
         loading: true,
         error: '',
         async init() {
@@ -111,6 +112,7 @@
             this.user = me.user;
             this.organization = me.organization;
             this.isPlatformAdmin = me.user.role === 'platform_admin';
+            this.isManager = me.user.role === 'manager';
             // Platform-Admins have no organization_id, so the org-scoped
             // target-profiles endpoint isn't relevant/reachable for them.
             if (!this.isPlatformAdmin) {

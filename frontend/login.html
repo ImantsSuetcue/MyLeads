@@ -46,7 +46,7 @@
               body: JSON.stringify({ email: this.email, password: this.password }),
             });
             auth.setToken(data.token);
-            window.location.href = 'dashboard.html';
+            window.location.href = data.user.role === 'platform_admin' ? 'platform-admin.html' : 'dashboard.html';
           } catch (err) {
             this.error = err.message;
           } finally {

@@ -66,24 +66,67 @@
               </template>
             </div>
 
-            <div class="stat-grid">
-              <div class="stat-card">
-                <div class="stat-label">Zielprofile</div>
-                <div class="stat-value" x-text="targetProfiles.length"></div>
+            <template x-if="isManager && kpis">
+              <div>
+                <div class="stat-grid">
+                  <div class="stat-card">
+                    <div class="stat-label">Gefundene Leads</div>
+                    <div class="stat-value" x-text="kpis.leadsFound"></div>
+                  </div>
+                  <div class="stat-card">
+                    <div class="stat-label">Gefundene Unternehmen</div>
+                    <div class="stat-value" x-text="kpis.companiesFound"></div>
+                  </div>
+                  <div class="stat-card">
+                    <div class="stat-label">Unternehmen mit Ansprechpartner</div>
+                    <div class="stat-value" x-text="kpis.companiesWithContact"></div>
+                  </div>
+                  <div class="stat-card">
+                    <div class="stat-label">Leads mit E-Mail</div>
+                    <div class="stat-value" x-text="kpis.leadsWithEmail"></div>
+                  </div>
+                  <div class="stat-card">
+                    <div class="stat-label">Leads mit Telefondurchwahl</div>
+                    <div class="stat-value" x-text="kpis.leadsWithPhone"></div>
+                  </div>
+                  <div class="stat-card">
+                    <div class="stat-label">Zielprofile</div>
+                    <div class="stat-value" x-text="targetProfiles.length"></div>
+                  </div>
+                </div>
+
+                <h2>Status-Verteilung</h2>
+                <div class="card" style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+                  <template x-for="statusKey in Object.keys(kpis.statusDistribution)" :key="statusKey">
+                    <span class="badge" :class="'badge-status-' + statusKey">
+                      <span x-text="statusKey + ': ' + kpis.statusDistribution[statusKey]"></span>
+                    </span>
+                  </template>
+                  <p class="subtitle" style="margin:0;" x-show="!Object.keys(kpis.statusDistribution).length">Noch keine Leads.</p>
+                </div>
               </div>
-              <div class="stat-card">
-                <div class="stat-label">Leads gesamt</div>
-                <div class="stat-value" x-text="leads.length"></div>
+            </template>
+
+            <template x-if="!isManager">
+              <div class="stat-grid">
+                <div class="stat-card">
+                  <div class="stat-label">Zielprofile (freigeschaltet)</div>
+                  <div class="stat-value" x-text="targetProfiles.length"></div>
+                </div>
+                <div class="stat-card">
+                  <div class="stat-label">Leads (freigeschaltet)</div>
+                  <div class="stat-value" x-text="leads.length"></div>
+                </div>
+                <div class="stat-card">
+                  <div class="stat-label">Leads mit E-Mail</div>
+                  <div class="stat-value" x-text="leads.filter(l => l.email).length"></div>
+                </div>
+                <div class="stat-card">
+                  <div class="stat-label">Hohe Passung</div>
+                  <div class="stat-value" x-text="leads.filter(l => l.score === 'high').length"></div>
+                </div>
               </div>
-              <div class="stat-card">
-                <div class="stat-label">Leads mit E-Mail</div>
-                <div class="stat-value" x-text="leads.filter(l => l.email).length"></div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-label">Hohe Passung</div>
-                <div class="stat-value" x-text="leads.filter(l => l.score === 'high').length"></div>
-              </div>
-            </div>
+            </template>
 
             <div class="top-nav" style="margin-top:2rem;">
               <h2 style="margin:0;">Zuletzt angelegte Zielprofile</h2>
@@ -114,7 +157,9 @@
         organization: null,
         targetProfiles: [],
         leads: [],
+        kpis: null,
         isPlatformAdmin: false,
+        isManager: false,
         loading: true,
         error: '',
 
@@ -128,13 +173,14 @@
             this.user = me.user;
             this.organization = me.organization;
             this.isPlatformAdmin = me.user.role === 'platform_admin';
+            this.isManager = me.user.role === 'manager';
             if (!this.isPlatformAdmin) {
-              const [profiles, leads] = await Promise.all([
-                apiFetch('/target-profiles'),
-                apiFetch('/leads'),
-              ]);
+              const calls = [apiFetch('/target-profiles'), apiFetch('/leads')];
+              if (this.isManager) calls.push(apiFetch('/dashboard/kpis'));
+              const [profiles, leads, kpis] = await Promise.all(calls);
               this.targetProfiles = profiles.targetProfiles;
               this.leads = leads.leads;
+              if (kpis) this.kpis = kpis;
             }
           } catch (err) {
             this.error = err.message;

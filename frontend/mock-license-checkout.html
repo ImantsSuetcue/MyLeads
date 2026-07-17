@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Test-Kasse Lizenzen - MyLeads</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="js/api.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body>
+  <div class="center-page">
+    <div class="card card-narrow" x-data="mockLicenseCheckout()" x-init="init()">
+      <div class="mock-banner">TEST-MODUS: Simulierte Stripe-Kasse (MOCK_MODE=true). Es wird keine echte Zahlung verarbeitet.</div>
+      <h1>Zusätzliche Lizenzen</h1>
+      <p class="subtitle">
+        <strong x-text="additionalLicenses"></strong> zusätzliche Lizenz(en) &middot;
+        <strong x-text="costEur"></strong> €/Monat
+      </p>
+
+      <button class="btn-primary" :disabled="loading" @click="confirm()">
+        <span x-text="loading ? 'Wird bestätigt…' : 'Zahlung bestätigen (Test)'"></span>
+      </button>
+      <div style="margin-top:0.75rem; text-align:center;">
+        <a href="settings.html" class="link-row">Abbrechen</a>
+      </div>
+
+      <div class="error-box" x-show="error" x-text="error"></div>
+    </div>
+  </div>
+
+  <script>
+    function mockLicenseCheckout() {
+      return {
+        orgId: '',
+        additionalLicenses: '',
+        costEur: '',
+        loading: false,
+        error: '',
+        init() {
+          const params = new URLSearchParams(window.location.search);
+          this.orgId = params.get('org_id') || '';
+          this.additionalLicenses = params.get('additionalLicenses') || '';
+          this.costEur = params.get('costEur') || '';
+        },
+        async confirm() {
+          this.error = '';
+          this.loading = true;
+          try {
+            await apiFetch('/billing/licenses/mock-complete-checkout', {
+              method: 'POST',
+              body: JSON.stringify({ organizationId: this.orgId, additionalLicenses: Number(this.additionalLicenses) }),
+            });
+            window.location.href = 'settings.html?licenses=success';
+          } catch (err) {
+            this.error = err.message;
+          } finally {
+            this.loading = false;
+          }
+        },
+      };
+    }
+  </script>
+</body>
+</html>

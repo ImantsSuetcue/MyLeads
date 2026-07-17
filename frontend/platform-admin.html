@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Platform-Admin - MyLeads</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="js/api.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body>
+  <!-- Deliberately NOT the customer sidebar shell — the Platform-Admin area is not
+       part of the normal customer interface (per spec). Just a minimal top bar. -->
+  <div class="page" x-data="platformAdminPage()" x-init="init()" style="max-width:1200px;">
+    <div class="top-nav">
+      <h1 style="margin:0;">MyLeads Platform-Admin</h1>
+      <div style="display:flex; align-items:center; gap:1rem;">
+        <span class="plan-meta" x-text="user && user.email"></span>
+        <button class="btn-ghost" @click="logout()">Logout</button>
+      </div>
+    </div>
+
+    <div class="error-box" x-show="error" x-text="error"></div>
+
+    <template x-if="loading">
+      <div class="card"><div class="skeleton skeleton-row"></div><div class="skeleton skeleton-row"></div></div>
+    </template>
+
+    <template x-if="!loading">
+      <div>
+        <div class="top-nav">
+          <h2 style="margin:0;">Organisationen (<span x-text="organizations.length"></span>)</h2>
+          <button class="btn-primary" style="margin:0;" @click="showCreateForm = !showCreateForm">
+            <span x-text="showCreateForm ? 'Abbrechen' : '+ Neue Organisation'"></span>
+          </button>
+        </div>
+
+        <div class="card card-wide" style="margin-bottom:1rem;" x-show="showCreateForm">
+          <label style="margin-top:0;">Firmenname</label>
+          <input type="text" x-model="createForm.companyName" placeholder="Musterfirma GmbH" />
+          <label>Plan</label>
+          <select x-model="createForm.plan">
+            <option value="starter">Starter</option>
+            <option value="team">Team</option>
+            <option value="enterprise">Enterprise</option>
+          </select>
+          <label>Manager E-Mail</label>
+          <input type="text" x-model="createForm.managerEmail" placeholder="manager@musterfirma.de" />
+          <label>Manager Name</label>
+          <input type="text" x-model="createForm.managerFullName" placeholder="Max Mustermann" />
+          <label>Manager Start-Passwort</label>
+          <input type="text" x-model="createForm.managerPassword" placeholder="mind. 8 Zeichen" />
+          <button class="btn-primary" :disabled="creating" @click="createOrganization()">
+            <span x-text="creating ? 'Wird angelegt…' : 'Organisation anlegen'"></span>
+          </button>
+        </div>
+
+        <div class="card data-table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Firma</th>
+                <th>Plan</th>
+                <th>Lizenzen</th>
+                <th>Nutzer</th>
+                <th>Status</th>
+                <th>Angelegt</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="org in organizations" :key="org.id">
+                <tr>
+                  <td x-text="org.name"></td>
+                  <td>
+                    <select :value="org.plan" @change="updateOrg(org, { plan: $event.target.value })">
+                      <option value="starter">Starter</option>
+                      <option value="team">Team</option>
+                      <option value="enterprise">Enterprise</option>
+                    </select>
+                  </td>
+                  <td>
+                    <input type="text" :value="org.license_count" style="width:70px;"
+                           @change="updateOrg(org, { licenseCount: Number($event.target.value) })" />
+                  </td>
+                  <td x-text="org.user_count"></td>
+                  <td>
+                    <select :value="org.subscription_status" @change="updateOrg(org, { subscriptionStatus: $event.target.value })">
+                      <option value="pending_checkout">pending_checkout</option>
+                      <option value="active">active</option>
+                      <option value="canceled">canceled</option>
+                    </select>
+                  </td>
+                  <td x-text="org.created_at"></td>
+                  <td><span class="plan-meta" x-show="savingOrgId === org.id">Speichert…</span></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <script>
+    function platformAdminPage() {
+      return {
+        user: null,
+        organizations: [],
+        loading: true,
+        error: '',
+        showCreateForm: false,
+        creating: false,
+        savingOrgId: null,
+        createForm: { companyName: '', plan: 'starter', managerEmail: '', managerFullName: '', managerPassword: '' },
+
+        async init() {
+          if (!auth.isLoggedIn()) {
+            window.location.href = 'login.html';
+            return;
+          }
+          try {
+            const me = await apiFetch('/auth/me');
+            this.user = me.user;
+            if (me.user.role !== 'platform_admin') {
+              window.location.href = 'dashboard.html';
+              return;
+            }
+            await this.loadOrganizations();
+          } catch (err) {
+            this.error = err.message;
+          } finally {
+            this.loading = false;
+          }
+        },
+
+        async loadOrganizations() {
+          const data = await apiFetch('/platform-admin/organizations');
+          this.organizations = data.organizations;
+        },
+
+        async createOrganization() {
+          this.error = '';
+          this.creating = true;
+          try {
+            await apiFetch('/platform-admin/organizations', { method: 'POST', body: JSON.stringify(this.createForm) });
+            this.createForm = { companyName: '', plan: 'starter', managerEmail: '', managerFullName: '', managerPassword: '' };
+            this.showCreateForm = false;
+            await this.loadOrganizations();
+          } catch (err) {
+            this.error = err.message;
+          } finally {
+            this.creating = false;
+          }
+        },
+
+        async updateOrg(org, changes) {
+          this.error = '';
+          this.savingOrgId = org.id;
+          try {
+            await apiFetch(`/platform-admin/organizations/${org.id}`, { method: 'PATCH', body: JSON.stringify(changes) });
+            await this.loadOrganizations();
+          } catch (err) {
+            this.error = err.message;
+          } finally {
+            this.savingOrgId = null;
+          }
+        },
+
+        logout() {
+          auth.clearToken();
+          window.location.href = 'login.html';
+        },
+      };
+    }
+  </script>
+</body>
+</html>

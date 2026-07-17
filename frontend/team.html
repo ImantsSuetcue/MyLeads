@@ -30,15 +30,120 @@
     <div class="main-content">
       <div class="page">
         <h1>Team</h1>
-        <div class="card">
-          <p class="subtitle" style="margin:0 0 0.5rem;">
-            Mitarbeitende einladen, Gruppen anlegen und Listen/Boards freischalten kommt in Phase 3.
-          </p>
-          <p class="subtitle" style="margin:0;">
-            Geplant: Einladungen im Rahmen der gebuchten Lizenzanzahl, Gruppen mit Standard-Freischaltung,
-            und individuelle Zugriffsrechte pro Zielprofil.
-          </p>
-        </div>
+
+        <div class="error-box" x-show="error" x-text="error"></div>
+
+        <template x-if="loading">
+          <div class="card"><div class="skeleton skeleton-row"></div><div class="skeleton skeleton-row"></div></div>
+        </template>
+
+        <template x-if="!loading">
+          <div>
+            <div class="top-nav">
+              <h2 style="margin:0;">Mitglieder <span class="plan-meta">(<span x-text="users.length"></span> von <span x-text="licenseCount"></span> Lizenzen belegt)</span></h2>
+              <button class="btn-primary" style="margin:0;" @click="showInviteForm = !showInviteForm" x-show="isManager">
+                <span x-text="showInviteForm ? 'Abbrechen' : '+ Mitarbeiter einladen'"></span>
+              </button>
+            </div>
+
+            <div class="card card-wide" style="margin-bottom:1rem;" x-show="showInviteForm">
+              <p class="subtitle" style="margin:0 0 0.75rem;">
+                Es gibt noch keinen E-Mail-Versand — lege den Account direkt an und teile E-Mail/Passwort selbst mit.
+              </p>
+              <label style="margin-top:0;">E-Mail</label>
+              <input type="text" x-model="inviteForm.email" placeholder="kolleg@in@firma.de" />
+              <label>Name</label>
+              <input type="text" x-model="inviteForm.fullName" placeholder="Max Mustermann" />
+              <label>Start-Passwort</label>
+              <input type="text" x-model="inviteForm.password" placeholder="mind. 8 Zeichen" />
+              <label>Rolle</label>
+              <select x-model="inviteForm.role">
+                <option value="member">Team-Mitglied</option>
+                <option value="manager">Manager</option>
+              </select>
+              <button class="btn-primary" :disabled="inviting" @click="invite()">
+                <span x-text="inviting ? 'Wird angelegt…' : 'Account anlegen'"></span>
+              </button>
+              <div class="error-box" x-show="inviteError" x-text="inviteError"></div>
+            </div>
+
+            <div class="card data-table-wrap" style="margin-bottom:2rem;" x-show="users.length">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>E-Mail</th>
+                    <th>Rolle</th>
+                    <th>Gruppen</th>
+                    <th x-show="isManager"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="u in users" :key="u.id">
+                    <tr>
+                      <td x-text="u.full_name || '–'"></td>
+                      <td x-text="u.email"></td>
+                      <td><span class="badge badge-pending" x-text="u.role"></span></td>
+                      <td>
+                        <template x-for="g in u.groups" :key="g.id">
+                          <span class="badge badge-status-new" style="margin-right:0.25rem;" x-text="g.name"></span>
+                        </template>
+                        <span x-show="!u.groups.length" class="plan-meta">–</span>
+                      </td>
+                      <td x-show="isManager">
+                        <button class="btn-ghost" style="padding:0.3rem 0.7rem; font-size:0.8rem;" @click="removeUser(u)" x-show="u.id !== user.id">Entfernen</button>
+                      </td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="top-nav">
+              <h2 style="margin:0;">Gruppen</h2>
+              <button class="btn-primary" style="margin:0;" @click="showGroupForm = !showGroupForm" x-show="isManager">
+                <span x-text="showGroupForm ? 'Abbrechen' : '+ Neue Gruppe'"></span>
+              </button>
+            </div>
+
+            <div class="card card-wide" style="margin-bottom:1rem;" x-show="showGroupForm">
+              <label style="margin-top:0;">Gruppenname</label>
+              <input type="text" x-model="newGroupName" placeholder="z.B. Team Nord" />
+              <button class="btn-primary" :disabled="creatingGroup" @click="createGroup()">
+                <span x-text="creatingGroup ? 'Wird angelegt…' : 'Gruppe anlegen'"></span>
+              </button>
+            </div>
+
+            <p class="subtitle" x-show="!groups.length">Noch keine Gruppen angelegt.</p>
+
+            <template x-for="group in groups" :key="group.id">
+              <div class="card" style="margin-bottom:0.75rem;">
+                <div class="top-nav" style="margin-bottom:0.5rem;">
+                  <strong x-text="group.name"></strong>
+                  <button class="btn-ghost" style="padding:0.3rem 0.7rem; font-size:0.8rem;" @click="deleteGroup(group)" x-show="isManager">Gruppe löschen</button>
+                </div>
+                <div style="margin-bottom:0.5rem;">
+                  <template x-for="m in group.members" :key="m.id">
+                    <span class="badge badge-status-new" style="margin-right:0.25rem;">
+                      <span x-text="m.fullName || m.email"></span>
+                      <a href="#" style="margin-left:0.35rem; text-decoration:none;" @click.prevent="removeGroupMember(group, m)" x-show="isManager">×</a>
+                    </span>
+                  </template>
+                  <span x-show="!group.members.length" class="plan-meta">Noch keine Mitglieder.</span>
+                </div>
+                <div style="display:flex; gap:0.5rem;" x-show="isManager">
+                  <select x-model="addMemberSelection[group.id]">
+                    <option value="">Mitglied hinzufügen…</option>
+                    <template x-for="u in users" :key="u.id">
+                      <option :value="u.id" x-text="u.full_name || u.email"></option>
+                    </template>
+                  </select>
+                  <button class="btn-secondary" @click="addGroupMember(group)">Hinzufügen</button>
+                </div>
+              </div>
+            </template>
+          </div>
+        </template>
       </div>
     </div>
   </div>
@@ -48,6 +153,21 @@
     function teamPage() {
       return {
         user: null,
+        isManager: false,
+        users: [],
+        groups: [],
+        licenseCount: 0,
+        loading: true,
+        error: '',
+        showInviteForm: false,
+        inviting: false,
+        inviteError: '',
+        inviteForm: { email: '', fullName: '', password: '', role: 'member' },
+        showGroupForm: false,
+        creatingGroup: false,
+        newGroupName: '',
+        addMemberSelection: {},
+
         async init() {
           if (!auth.isLoggedIn()) {
             window.location.href = 'login.html';
@@ -56,10 +176,96 @@
           try {
             const me = await apiFetch('/auth/me');
             this.user = me.user;
+            this.isManager = me.user.role === 'manager';
+            await this.loadAll();
           } catch (err) {
-            // Non-fatal on a placeholder page.
+            this.error = err.message;
+          } finally {
+            this.loading = false;
           }
         },
+
+        async loadAll() {
+          const [usersData, groupsData] = await Promise.all([
+            apiFetch('/team/users'),
+            apiFetch('/team/groups'),
+          ]);
+          this.users = usersData.users;
+          this.licenseCount = usersData.licenseCount;
+          this.groups = groupsData.groups;
+        },
+
+        async invite() {
+          this.inviteError = '';
+          this.inviting = true;
+          try {
+            await apiFetch('/team/users', { method: 'POST', body: JSON.stringify(this.inviteForm) });
+            this.inviteForm = { email: '', fullName: '', password: '', role: 'member' };
+            this.showInviteForm = false;
+            await this.loadAll();
+          } catch (err) {
+            this.inviteError = err.message;
+          } finally {
+            this.inviting = false;
+          }
+        },
+
+        async removeUser(u) {
+          if (!confirm(`${u.email} wirklich aus der Firma entfernen?`)) return;
+          try {
+            await apiFetch(`/team/users/${u.id}`, { method: 'DELETE' });
+            await this.loadAll();
+          } catch (err) {
+            this.error = err.message;
+          }
+        },
+
+        async createGroup() {
+          if (!this.newGroupName.trim()) return;
+          this.creatingGroup = true;
+          try {
+            await apiFetch('/team/groups', { method: 'POST', body: JSON.stringify({ name: this.newGroupName }) });
+            this.newGroupName = '';
+            this.showGroupForm = false;
+            await this.loadAll();
+          } catch (err) {
+            this.error = err.message;
+          } finally {
+            this.creatingGroup = false;
+          }
+        },
+
+        async deleteGroup(group) {
+          if (!confirm(`Gruppe "${group.name}" wirklich löschen?`)) return;
+          try {
+            await apiFetch(`/team/groups/${group.id}`, { method: 'DELETE' });
+            await this.loadAll();
+          } catch (err) {
+            this.error = err.message;
+          }
+        },
+
+        async addGroupMember(group) {
+          const userId = this.addMemberSelection[group.id];
+          if (!userId) return;
+          try {
+            await apiFetch(`/team/groups/${group.id}/members`, { method: 'POST', body: JSON.stringify({ userId }) });
+            this.addMemberSelection[group.id] = '';
+            await this.loadAll();
+          } catch (err) {
+            this.error = err.message;
+          }
+        },
+
+        async removeGroupMember(group, member) {
+          try {
+            await apiFetch(`/team/groups/${group.id}/members/${member.id}`, { method: 'DELETE' });
+            await this.loadAll();
+          } catch (err) {
+            this.error = err.message;
+          }
+        },
+
         logout() {
           auth.clearToken();
           window.location.href = 'login.html';

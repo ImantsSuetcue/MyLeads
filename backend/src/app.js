@@ -9,6 +9,8 @@ const searchesRoutes = require('./routes/searches');
 const leadsRoutes = require('./routes/leads');
 const allLeadsRoutes = require('./routes/allLeads');
 const platformAdminRoutes = require('./routes/platformAdmin');
+const teamRoutes = require('./routes/team');
+const dashboardRoutes = require('./routes/dashboard');
 
 const app = express();
 
@@ -36,5 +38,7 @@ app.use('/api/target-profiles/:profileId/searches', searchesRoutes);
 app.use('/api/target-profiles/:profileId/leads', leadsRoutes);
 app.use('/api/leads', allLeadsRoutes);
 app.use('/api/platform-admin', platformAdminRoutes);
+app.use('/api/team', teamRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 module.exports = app;
