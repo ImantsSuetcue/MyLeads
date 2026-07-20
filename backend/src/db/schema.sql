@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS leads (
   -- Lets the suppression/delete endpoint know which leads to clear when a scraped domain is deleted.
   industry_size_source TEXT,
   source TEXT NOT NULL DEFAULT 'apollo', -- which provider found this lead
-  status TEXT NOT NULL DEFAULT 'new', -- new | contacted | proposal | won | lost
+  status TEXT NOT NULL DEFAULT 'new', -- new | contacted | qualified | proposal | won | lost
   score TEXT, -- low | medium | high
   ai_reasoning TEXT, -- fit reasoning: why this lead matches the target profile
   value_proposition TEXT, -- individual pitch: what our product offers THIS lead specifically

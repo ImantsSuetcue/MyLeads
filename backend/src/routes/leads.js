@@ -2,6 +2,9 @@ const express = require('express');
 const db = require('../db/db');
 const { requireAuth } = require('../middleware/auth');
 const { canAccessProfile } = require('../services/listAccess');
+const { newId } = require('../utils/ids');
+
+const LEAD_STATUSES = ['new', 'contacted', 'qualified', 'proposal', 'won', 'lost'];
 
 // Mounted at /api/target-profiles/:profileId/leads — mergeParams gives us :profileId.
 const router = express.Router({ mergeParams: true });
@@ -83,6 +86,77 @@ router.get('/:leadId', (req, res) => {
     : null;
 
   res.json({ lead, report });
+});
+
+// Shared by the status/notes routes below: loads the lead scoped to this org+profile
+// and checks list access. Returns null (and has already sent the error response) on failure.
+function loadAccessibleLead(req, res) {
+  const lead = db
+    .prepare('SELECT * FROM leads WHERE id = ? AND target_profile_id = ? AND organization_id = ?')
+    .get(req.params.leadId, req.params.profileId, req.user.organizationId);
+  if (!lead) {
+    res.status(404).json({ error: 'Lead not found' });
+    return null;
+  }
+  if (!canAccessProfile({ userId: req.user.sub, role: req.user.role, targetProfileId: lead.target_profile_id })) {
+    res.status(403).json({ error: 'No access to this list' });
+    return null;
+  }
+  return lead;
+}
+
+router.patch('/:leadId/status', (req, res) => {
+  const lead = loadAccessibleLead(req, res);
+  if (!lead) return;
+
+  const { status } = req.body;
+  if (!LEAD_STATUSES.includes(status)) {
+    return res.status(400).json({ error: `status must be one of: ${LEAD_STATUSES.join(', ')}` });
+  }
+
+  db.prepare('UPDATE leads SET status = ? WHERE id = ?').run(status, lead.id);
+  const updated = db.prepare('SELECT * FROM leads WHERE id = ?').get(lead.id);
+  res.json({ lead: updated });
+});
+
+router.get('/:leadId/notes', (req, res) => {
+  const lead = loadAccessibleLead(req, res);
+  if (!lead) return;
+
+  const notes = db
+    .prepare(
+      `SELECT n.*, u.full_name, u.email
+       FROM notes n
+       JOIN users u ON u.id = n.user_id
+       WHERE n.lead_id = ?
+       ORDER BY n.created_at DESC`
+    )
+    .all(lead.id);
+
+  res.json({ notes });
+});
+
+router.post('/:leadId/notes', (req, res) => {
+  const lead = loadAccessibleLead(req, res);
+  if (!lead) return;
+
+  const body = (req.body.body || '').trim();
+  if (!body) {
+    return res.status(400).json({ error: 'body is required' });
+  }
+
+  const id = newId();
+  db.prepare('INSERT INTO notes (id, lead_id, user_id, body) VALUES (?, ?, ?, ?)').run(id, lead.id, req.user.sub, body);
+  const note = db
+    .prepare(
+      `SELECT n.*, u.full_name, u.email
+       FROM notes n
+       JOIN users u ON u.id = n.user_id
+       WHERE n.id = ?`
+    )
+    .get(id);
+
+  res.status(201).json({ note });
 });
 
 module.exports = router;

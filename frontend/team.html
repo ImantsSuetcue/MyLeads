@@ -131,7 +131,7 @@
                   </template>
                   <span x-show="!group.members.length" class="plan-meta">Noch keine Mitglieder.</span>
                 </div>
-                <div style="display:flex; gap:0.5rem;" x-show="isManager">
+                <div style="display:flex; gap:0.5rem; flex-wrap:wrap;" x-show="isManager">
                   <select x-model="addMemberSelection[group.id]">
                     <option value="">Mitglied hinzufügen…</option>
                     <template x-for="u in users" :key="u.id">

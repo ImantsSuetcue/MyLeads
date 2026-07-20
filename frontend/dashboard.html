@@ -6,6 +6,7 @@
   <title>Dashboard - MyLeads</title>
   <link rel="stylesheet" href="css/style.css" />
   <script src="js/api.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 <body>
@@ -69,29 +70,62 @@
             <template x-if="isManager && kpis">
               <div>
                 <div class="stat-grid">
-                  <div class="stat-card">
+                  <div class="stat-card" :class="{active: expandedMetric === 'leadsFound'}" @click="toggleMetric('leadsFound')">
                     <div class="stat-label">Gefundene Leads</div>
                     <div class="stat-value" x-text="kpis.leadsFound"></div>
                   </div>
-                  <div class="stat-card">
+                  <div class="stat-card" :class="{active: expandedMetric === 'companiesFound'}" @click="toggleMetric('companiesFound')">
                     <div class="stat-label">Gefundene Unternehmen</div>
                     <div class="stat-value" x-text="kpis.companiesFound"></div>
                   </div>
-                  <div class="stat-card">
+                  <div class="stat-card" :class="{active: expandedMetric === 'companiesWithContact'}" @click="toggleMetric('companiesWithContact')">
                     <div class="stat-label">Unternehmen mit Ansprechpartner</div>
                     <div class="stat-value" x-text="kpis.companiesWithContact"></div>
                   </div>
-                  <div class="stat-card">
+                  <div class="stat-card" :class="{active: expandedMetric === 'leadsWithEmail'}" @click="toggleMetric('leadsWithEmail')">
                     <div class="stat-label">Leads mit E-Mail</div>
                     <div class="stat-value" x-text="kpis.leadsWithEmail"></div>
                   </div>
-                  <div class="stat-card">
+                  <div class="stat-card" :class="{active: expandedMetric === 'leadsWithPhone'}" @click="toggleMetric('leadsWithPhone')">
                     <div class="stat-label">Leads mit Telefondurchwahl</div>
                     <div class="stat-value" x-text="kpis.leadsWithPhone"></div>
                   </div>
-                  <div class="stat-card">
+                  <div class="stat-card" :class="{active: expandedMetric === 'targetProfiles'}" @click="toggleMetric('targetProfiles')">
                     <div class="stat-label">Zielprofile</div>
                     <div class="stat-value" x-text="targetProfiles.length"></div>
+                  </div>
+                </div>
+
+                <div class="card" x-show="expandedMetric" x-transition style="margin-top:1rem;">
+                  <div class="top-nav" style="margin-bottom:1rem;">
+                    <div>
+                      <h2 style="margin:0;" x-text="metricLabels[expandedMetric]"></h2>
+                      <p class="plan-meta" style="margin:0.25rem 0 0;" x-show="currentTotal !== null">
+                        <strong x-text="currentTotal"></strong> gesamt
+                        <span x-show="delta !== null" x-text="' · ' + (delta >= 0 ? '+' : '') + delta + ' im gewählten Zeitraum'"></span>
+                      </p>
+                    </div>
+                    <button class="btn-ghost" @click="toggleMetric(expandedMetric)">Schließen</button>
+                  </div>
+
+                  <div style="display:flex; gap:0.4rem; margin-bottom:1rem; flex-wrap:wrap;">
+                    <template x-for="r in ranges" :key="r.key">
+                      <button class="range-btn" :class="{active: metricRange === r.key}" @click="selectRange(r.key)" x-text="r.label"></button>
+                    </template>
+                  </div>
+
+                  <div class="chart-wrap">
+                    <canvas x-ref="metricChart"></canvas>
+                  </div>
+
+                  <div style="margin-top:1.25rem;" x-show="breakdown.length">
+                    <label style="margin-top:0;">Nach Zielprofil</label>
+                    <template x-for="item in breakdown" :key="item.id">
+                      <div style="display:flex; justify-content:space-between; padding:0.4rem 0; border-bottom:1px solid var(--color-border-subtle); font-size:0.875rem;">
+                        <span x-text="item.name"></span>
+                        <strong x-text="item.value"></strong>
+                      </div>
+                    </template>
                   </div>
                 </div>
 
@@ -163,6 +197,35 @@
         loading: true,
         error: '',
 
+        expandedMetric: null,
+        metricRange: '30d',
+        timeseries: [],
+        breakdown: [],
+        chartInstance: null,
+        loadingDetail: false,
+        ranges: [
+          { key: '1d', label: '1 Tag' },
+          { key: '7d', label: '1 Woche' },
+          { key: '30d', label: '1 Monat' },
+          { key: '1y', label: '1 Jahr' },
+          { key: '3y', label: '3 Jahre' },
+        ],
+        metricLabels: {
+          leadsFound: 'Gefundene Leads',
+          companiesFound: 'Gefundene Unternehmen',
+          companiesWithContact: 'Unternehmen mit Ansprechpartner',
+          leadsWithEmail: 'Leads mit E-Mail',
+          leadsWithPhone: 'Leads mit Telefondurchwahl',
+          targetProfiles: 'Zielprofile',
+        },
+
+        get currentTotal() {
+          return this.timeseries.length ? this.timeseries[this.timeseries.length - 1].value : null;
+        },
+        get delta() {
+          return this.timeseries.length ? this.timeseries[this.timeseries.length - 1].value - this.timeseries[0].value : null;
+        },
+
         async init() {
           if (!auth.isLoggedIn()) {
             window.location.href = 'login.html';
@@ -187,6 +250,112 @@
           } finally {
             this.loading = false;
           }
+        },
+
+        async toggleMetric(key) {
+          if (this.expandedMetric === key) {
+            this.expandedMetric = null;
+            if (this.chartInstance) {
+              this.chartInstance.destroy();
+              this.chartInstance = null;
+            }
+            return;
+          }
+          this.expandedMetric = key;
+          this.metricRange = '30d';
+          await this.loadDetail();
+        },
+
+        async selectRange(range) {
+          this.metricRange = range;
+          await this.loadTimeseries();
+        },
+
+        async loadDetail() {
+          this.loadingDetail = true;
+          try {
+            const [ts, bd] = await Promise.all([
+              apiFetch(`/dashboard/timeseries?metric=${this.expandedMetric}&range=${this.metricRange}`),
+              apiFetch(`/dashboard/breakdown?metric=${this.expandedMetric}`),
+            ]);
+            this.timeseries = ts.series;
+            this.breakdown = bd.breakdown;
+            this.renderChart();
+          } catch (err) {
+            this.error = err.message;
+          } finally {
+            this.loadingDetail = false;
+          }
+        },
+
+        async loadTimeseries() {
+          this.loadingDetail = true;
+          try {
+            const ts = await apiFetch(`/dashboard/timeseries?metric=${this.expandedMetric}&range=${this.metricRange}`);
+            this.timeseries = ts.series;
+            this.renderChart();
+          } catch (err) {
+            this.error = err.message;
+          } finally {
+            this.loadingDetail = false;
+          }
+        },
+
+        formatBucketLabel(iso) {
+          const d = new Date(iso);
+          if (this.metricRange === '1d') return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+          if (this.metricRange === '7d' || this.metricRange === '30d') return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+          return d.toLocaleDateString('de-DE', { month: 'short', year: '2-digit' });
+        },
+
+        renderChart() {
+          if (this.chartInstance) this.chartInstance.destroy();
+          const canvas = this.$refs.metricChart;
+          if (!canvas) return;
+
+          const primary = getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim();
+          this.chartInstance = new Chart(canvas.getContext('2d'), {
+            type: 'line',
+            data: {
+              labels: this.timeseries.map((point) => this.formatBucketLabel(point.date)),
+              datasets: [
+                {
+                  data: this.timeseries.map((point) => point.value),
+                  borderColor: primary,
+                  backgroundColor: primary + '1a',
+                  borderWidth: 2,
+                  pointRadius: 0,
+                  pointHoverRadius: 4,
+                  pointHitRadius: 14,
+                  tension: 0.3,
+                  fill: true,
+                },
+              ],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              animation: false,
+              interaction: { mode: 'index', intersect: false },
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  backgroundColor: '#ffffff',
+                  titleColor: '#111827',
+                  bodyColor: '#111827',
+                  borderColor: '#e5e7eb',
+                  borderWidth: 1,
+                  padding: 10,
+                  boxWidth: 10,
+                  boxHeight: 2,
+                },
+              },
+              scales: {
+                y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: '#f0f1f3' } },
+                x: { grid: { display: false } },
+              },
+            },
+          });
         },
 
         logout() {

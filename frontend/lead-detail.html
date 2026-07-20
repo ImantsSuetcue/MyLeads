@@ -46,7 +46,7 @@
               </div>
               <p class="plan-meta" style="margin:0 0 1rem;" x-text="lead.company_domain"></p>
 
-              <div style="display:flex; gap:0.6rem; margin-bottom:1.25rem;">
+              <div style="display:flex; gap:0.6rem; flex-wrap:wrap; margin-bottom:1.25rem;">
                 <a class="icon-link" :href="'https://' + lead.company_domain" target="_blank" rel="noopener" x-show="lead.company_domain">
                   🏢 Firma ansehen
                 </a>
@@ -55,14 +55,24 @@
                 </a>
               </div>
 
-              <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+              <div class="info-grid">
                 <div>
                   <label style="margin-top:0;">Branche</label>
                   <p x-text="lead.company_industry || '–'"></p>
                   <label>Firmengröße</label>
                   <p x-text="lead.company_size || '–'"></p>
                   <label>Status</label>
-                  <p><span class="badge" :class="'badge-status-' + lead.status" x-text="lead.status"></span></p>
+                  <p style="display:flex; align-items:center; gap:0.6rem;">
+                    <select x-model="lead.status" @change="updateStatus()" :disabled="savingStatus">
+                      <option value="new">Neu</option>
+                      <option value="contacted">Kontaktiert</option>
+                      <option value="qualified">Qualifiziert</option>
+                      <option value="proposal">Angebot</option>
+                      <option value="won">Gewonnen</option>
+                      <option value="lost">Verloren</option>
+                    </select>
+                    <span class="badge" :class="'badge-status-' + lead.status" x-text="lead.status"></span>
+                  </p>
                 </div>
                 <div>
                   <label style="margin-top:0;">Ansprechperson</label>
@@ -127,6 +137,31 @@
                 <p style="margin:0.5rem 0 0; font-weight:600;">Tiefen-Recherche verfügbar ab Team-Paket</p>
               </div>
             </template>
+
+            <div class="card" style="margin-top:1.5rem;">
+              <h2 style="margin-top:0;">Notizen</h2>
+
+              <div x-show="notes.length === 0">
+                <p class="subtitle" style="margin:0 0 1rem;">Noch keine Notizen für diesen Lead.</p>
+              </div>
+
+              <div x-show="notes.length > 0" style="margin-bottom:1rem;">
+                <template x-for="note in notes" :key="note.id">
+                  <div style="padding:0.75rem 0; border-bottom:1px solid var(--color-border-subtle);">
+                    <p class="plan-meta" style="margin:0 0 0.25rem;">
+                      <strong x-text="note.full_name || note.email"></strong> &middot; <span x-text="note.created_at"></span>
+                    </p>
+                    <p style="margin:0; white-space:pre-wrap;" x-text="note.body"></p>
+                  </div>
+                </template>
+              </div>
+
+              <label style="margin-top:0;">Neue Notiz</label>
+              <textarea x-model="newNote" rows="3" placeholder="z.B. Rückruf vereinbart, wartet auf Angebot…"></textarea>
+              <button class="btn-primary" style="margin-top:0.6rem;" :disabled="!newNote.trim() || savingNote" @click="addNote()">
+                <span x-text="savingNote ? 'Speichern…' : 'Notiz speichern'"></span>
+              </button>
+            </div>
           </div>
         </template>
       </div>
@@ -142,7 +177,11 @@
         user: null,
         lead: null,
         report: null,
+        notes: [],
+        newNote: '',
         loading: true,
+        savingStatus: false,
+        savingNote: false,
         error: '',
 
         async init() {
@@ -161,10 +200,45 @@
             const data = await apiFetch(`/target-profiles/${this.profileId}/leads/${this.leadId}`);
             this.lead = data.lead;
             this.report = data.report;
+            const notesData = await apiFetch(`/target-profiles/${this.profileId}/leads/${this.leadId}/notes`);
+            this.notes = notesData.notes;
           } catch (err) {
             this.error = err.message;
           } finally {
             this.loading = false;
+          }
+        },
+
+        async updateStatus() {
+          this.savingStatus = true;
+          this.error = '';
+          try {
+            await apiFetch(`/target-profiles/${this.profileId}/leads/${this.leadId}/status`, {
+              method: 'PATCH',
+              body: JSON.stringify({ status: this.lead.status }),
+            });
+          } catch (err) {
+            this.error = err.message;
+          } finally {
+            this.savingStatus = false;
+          }
+        },
+
+        async addNote() {
+          if (!this.newNote.trim()) return;
+          this.savingNote = true;
+          this.error = '';
+          try {
+            const data = await apiFetch(`/target-profiles/${this.profileId}/leads/${this.leadId}/notes`, {
+              method: 'POST',
+              body: JSON.stringify({ body: this.newNote.trim() }),
+            });
+            this.notes.unshift(data.note);
+            this.newNote = '';
+          } catch (err) {
+            this.error = err.message;
+          } finally {
+            this.savingNote = false;
           }
         },
 

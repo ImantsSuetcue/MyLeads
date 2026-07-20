@@ -41,6 +41,8 @@
   --status-new-text: #4338ca;
   --status-contacted-bg: #e0f2fe;
   --status-contacted-text: #075985;
+  --status-qualified-bg: #ede9fe;
+  --status-qualified-text: #6d28d9;
   --status-proposal-bg: #fef3c7;
   --status-proposal-text: #92400e;
   --status-won-bg: #dcfce7;
@@ -180,7 +182,10 @@ p.subtitle { color: var(--color-text-secondary); margin: 0 0 var(--space-5); }
 }
 
 .main-content { flex: 1; min-width: 0; padding: var(--space-6) var(--space-6); }
-.main-content .page { padding: 0; max-width: 1040px; margin: 0; }
+.main-content .page { padding: 0; max-width: none; margin: 0; }
+
+/* Two-column info layout (e.g. lead-detail.html) — collapses to one column on narrow windows. */
+.info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
 
 /* ==========================================================================
    Cards
@@ -297,6 +302,7 @@ button {
 /* Lead pipeline status badges */
 .badge-status-new { background: var(--status-new-bg); color: var(--status-new-text); }
 .badge-status-contacted { background: var(--status-contacted-bg); color: var(--status-contacted-text); }
+.badge-status-qualified { background: var(--status-qualified-bg); color: var(--status-qualified-text); }
 .badge-status-proposal { background: var(--status-proposal-bg); color: var(--status-proposal-text); }
 .badge-status-won { background: var(--status-won-bg); color: var(--status-won-text); }
 .badge-status-lost { background: var(--status-lost-bg); color: var(--status-lost-text); }
@@ -339,9 +345,33 @@ button {
    ========================================================================== */
 
 .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-4); }
-.stat-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: var(--space-5); }
+.stat-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  cursor: pointer;
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+.stat-card:hover { box-shadow: var(--shadow-sm); }
+.stat-card.active { border-color: var(--color-primary); box-shadow: 0 0 0 2px var(--color-primary-subtle); }
 .stat-card .stat-label { font-size: 0.8125rem; color: var(--color-text-secondary); font-weight: 600; margin-bottom: var(--space-2); }
 .stat-card .stat-value { font-size: 1.75rem; font-weight: 700; color: var(--gray-900); }
+
+.range-btn {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 0.3rem 0.85rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+.range-btn:hover { background: var(--gray-50); }
+.range-btn.active { background: var(--color-primary-subtle); border-color: var(--color-primary); color: var(--color-primary); }
+
+.chart-wrap { position: relative; height: 260px; }
 
 /* ==========================================================================
    Skeleton loaders
@@ -409,5 +439,68 @@ button {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
   margin-bottom: var(--space-5);
+}
+
+/* ==========================================================================
+   Responsive
+   ========================================================================== */
+
+/* Sidebar becomes a horizontal top bar with a scrollable nav row instead of
+   eating a fixed 232px of a narrow viewport. */
+@media (max-width: 880px) {
+  .app-shell { flex-direction: column; }
+
+  .sidebar {
+    width: 100%;
+    height: auto;
+    position: static;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+    gap: var(--space-3);
+  }
+
+  .sidebar > div:first-child { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+
+  .sidebar-brand { padding: var(--space-3) 0 var(--space-3) var(--space-4); flex-shrink: 0; }
+
+  .sidebar-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 0;
+    gap: var(--space-1);
+  }
+
+  .sidebar-nav a { white-space: nowrap; border-left: none; border-bottom: 2px solid transparent; }
+  .sidebar-nav a.active { border-left-color: transparent; border-bottom-color: var(--color-accent); }
+
+  .sidebar-footer {
+    border-top: none;
+    padding: var(--space-3) var(--space-4);
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex-shrink: 0;
+  }
+
+  .sidebar-footer .user-email { margin-bottom: 0; max-width: 140px; }
+  .sidebar-footer button { width: auto; }
+
+  .main-content { padding: var(--space-4); }
+}
+
+@media (max-width: 640px) {
+  .page { padding: var(--space-4) var(--space-4); }
+  .main-content .page { padding: 0; }
+
+  .info-grid { grid-template-columns: 1fr; }
+
+  .sidebar-footer .user-email { display: none; }
+
+  .stat-card .stat-value { font-size: 1.4rem; }
 }
