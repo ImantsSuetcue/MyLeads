@@ -25,6 +25,10 @@ async function runForSearch(searchRunId) {
     return; // e.g. Starter plan — no deep research included
   }
 
+  // Signal plan is already cached on the profile by this point — leadFinder.js's Stage 1.5
+  // always runs (and persists it) before Stage 4 calls into this function.
+  const signalPlan = targetProfile.signal_plan_json ? JSON.parse(targetProfile.signal_plan_json) : null;
+
   // Best-scoring leads first (stable sort keeps ties in original/creation order).
   const leads = db
     .prepare('SELECT * FROM leads WHERE search_run_id = ? ORDER BY created_at ASC')
@@ -34,7 +38,7 @@ async function runForSearch(searchRunId) {
 
   for (const lead of leads) {
     try {
-      const report = await claudeClient.researchLeadDeep(lead, targetProfile);
+      const report = await claudeClient.researchLeadDeep(lead, targetProfile, signalPlan);
       db.prepare(
         `INSERT INTO lead_reports
           (id, lead_id, news_summary, company_kpis, company_stage, fit_category, fit_reasoning, value_proposition, sales_talking_points, sources)

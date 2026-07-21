@@ -31,7 +31,7 @@
     <div class="main-content">
       <div class="page">
         <h1>Dashboard</h1>
-        <p class="subtitle" x-show="!loading && !isPlatformAdmin">Willkommen zurück! Hier ist der aktuelle Stand deiner Lead-Suche.</p>
+        <p class="subtitle" x-show="!loading">Willkommen zurück! Hier ist der aktuelle Stand deiner Lead-Suche.</p>
 
         <template x-if="loading">
           <div class="stat-grid">
@@ -43,17 +43,7 @@
 
         <div class="error-box" x-show="error" x-text="error"></div>
 
-        <template x-if="!loading && isPlatformAdmin">
-          <div class="card">
-            <h2 style="margin-top:0;">Platform-Admin</h2>
-            <p class="subtitle" style="margin:0;">
-              Der Platform-Admin-Bereich (<code>/platform-admin</code>) wird erst in Phase 3 gebaut.
-              Das Backend dafür funktioniert schon.
-            </p>
-          </div>
-        </template>
-
-        <template x-if="!loading && !isPlatformAdmin">
+        <template x-if="!loading">
           <div>
             <div class="card" style="margin-bottom:1.5rem;">
               <p style="margin:0 0 0.35rem;">Eingeloggt als <strong x-text="user && user.email"></strong> (<span x-text="user && user.role"></span>)</p>
@@ -192,7 +182,6 @@
         targetProfiles: [],
         leads: [],
         kpis: null,
-        isPlatformAdmin: false,
         isManager: false,
         loading: true,
         error: '',
@@ -235,16 +224,13 @@
             const me = await apiFetch('/auth/me');
             this.user = me.user;
             this.organization = me.organization;
-            this.isPlatformAdmin = me.user.role === 'platform_admin';
             this.isManager = me.user.role === 'manager';
-            if (!this.isPlatformAdmin) {
-              const calls = [apiFetch('/target-profiles'), apiFetch('/leads')];
-              if (this.isManager) calls.push(apiFetch('/dashboard/kpis'));
-              const [profiles, leads, kpis] = await Promise.all(calls);
-              this.targetProfiles = profiles.targetProfiles;
-              this.leads = leads.leads;
-              if (kpis) this.kpis = kpis;
-            }
+            const calls = [apiFetch('/target-profiles'), apiFetch('/leads')];
+            if (this.isManager) calls.push(apiFetch('/dashboard/kpis'));
+            const [profiles, leads, kpis] = await Promise.all(calls);
+            this.targetProfiles = profiles.targetProfiles;
+            this.leads = leads.leads;
+            if (kpis) this.kpis = kpis;
           } catch (err) {
             this.error = err.message;
           } finally {

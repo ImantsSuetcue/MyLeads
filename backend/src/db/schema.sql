@@ -41,6 +41,10 @@ CREATE TABLE IF NOT EXISTS target_profiles (
   goals TEXT,
   is_recurring INTEGER NOT NULL DEFAULT 0,
   recurring_frequency TEXT,
+  -- Cached output of claudeClient.planResearchSignals(): which public signal categories
+  -- (hiring activity, funding, tech stack, ...) are worth checking for leads matching THIS
+  -- product/target audience. Computed once on first search, reused after (see leadFinder.js).
+  signal_plan_json TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

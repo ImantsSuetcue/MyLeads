@@ -49,6 +49,34 @@
 
         <div class="error-box" x-show="error" x-text="error"></div>
 
+        <div style="margin-bottom:1.5rem;">
+          <button class="btn-secondary" @click="showSignalPanel = !showSignalPanel">
+            <span x-text="showSignalPanel ? 'Signale schließen' : 'Analysierte Signale anzeigen'"></span>
+          </button>
+
+          <div class="card" style="margin-top:0.75rem;" x-show="showSignalPanel">
+            <h2 style="margin-top:0;">Worauf wir bei Leads aus diesem Zielprofil achten</h2>
+            <p class="subtitle">
+              Automatisch für dieses Produkt ermittelt — welche öffentlich zugänglichen Signale bei der
+              Lead-Analyse gezielt gesucht werden, statt bei jedem Kunden dieselbe generische Checkliste abzuarbeiten.
+            </p>
+
+            <template x-if="signalPlan && signalPlan.signals && signalPlan.signals.length">
+              <div>
+                <template x-for="signal in signalPlan.signals" :key="signal.category + (signal.custom_label || '')">
+                  <div style="margin-bottom:0.75rem;">
+                    <span class="badge badge-status-contacted" x-text="signalCategoryLabel(signal)"></span>
+                    <p class="plan-meta" style="margin:0.25rem 0 0;" x-text="signal.rationale"></p>
+                  </div>
+                </template>
+              </div>
+            </template>
+            <p class="subtitle" x-show="!signalPlan" style="margin:0;">
+              Wird automatisch bei der ersten Suche für dieses Zielprofil ermittelt.
+            </p>
+          </div>
+        </div>
+
         <template x-if="isManager">
           <div style="margin-bottom:1.5rem;">
             <button class="btn-secondary" @click="showAccessPanel = !showAccessPanel; if (showAccessPanel) loadAccess()">
@@ -166,6 +194,9 @@
             <option value="medium">Mittlere Passung</option>
             <option value="low">Geringe Passung</option>
           </select>
+          <label style="display:flex; align-items:center; gap:0.35rem; font-weight:400; font-size:0.875rem;">
+            <input type="checkbox" x-model="hideLowFit" style="width:auto;" /> Geringe Passung ausblenden
+          </label>
         </div>
 
         <div class="card data-table-wrap" x-show="leads.length">
@@ -225,6 +256,20 @@
         searchQuery: '',
         fitFilter: '',
         isManager: false,
+        showSignalPanel: false,
+        hideLowFit: true,
+        signalCategoryLabels: {
+          hiring_activity: 'Hiring-Aktivität',
+          funding_investment: 'Finanzierung/Investment',
+          leadership_changes: 'Führungswechsel',
+          recent_news_pr: 'Aktuelle News/Presse',
+          tech_stack: 'Eingesetzte Technologien',
+          expansion_signals: 'Expansion (Standorte/Märkte)',
+          certifications_compliance: 'Zertifizierungen/Compliance',
+          social_proof: 'Social Proof (Kundenstimmen/Reviews)',
+          competitor_moves: 'Wettbewerber-Aktivität',
+          pain_point_signals: 'Hinweise auf den gelösten Schmerzpunkt',
+        },
         showAccessPanel: false,
         permissions: [],
         teamUsers: [],
@@ -234,10 +279,25 @@
         groupIsDefault: false,
         runKpis: null,
 
+        get signalPlan() {
+          if (!this.profile || !this.profile.signal_plan_json) return null;
+          try {
+            return JSON.parse(this.profile.signal_plan_json);
+          } catch (err) {
+            return null;
+          }
+        },
+
+        signalCategoryLabel(signal) {
+          if (signal.category === 'custom') return signal.custom_label || 'Individuelles Signal';
+          return this.signalCategoryLabels[signal.category] || signal.category;
+        },
+
         get filteredLeads() {
           const q = this.searchQuery.trim().toLowerCase();
           return this.leads.filter((lead) => {
             if (this.fitFilter && lead.score !== this.fitFilter) return false;
+            if (!this.fitFilter && this.hideLowFit && lead.score === 'low') return false;
             if (!q) return true;
             const haystack = [lead.company_name, lead.first_name, lead.last_name, lead.email]
               .filter(Boolean)

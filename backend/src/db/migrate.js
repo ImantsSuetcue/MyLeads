@@ -23,6 +23,7 @@ function addColumnIfMissing(table, column, definition) {
 addColumnIfMissing('leads', 'industry_size_source', 'TEXT');
 addColumnIfMissing('leads', 'value_proposition', 'TEXT');
 addColumnIfMissing('lead_reports', 'value_proposition', 'TEXT');
+addColumnIfMissing('target_profiles', 'signal_plan_json', 'TEXT');
 
 console.log('Migration complete. Tables:');
 const rows = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name").all();

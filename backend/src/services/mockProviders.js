@@ -113,4 +113,32 @@ function mockDeepResearch(lead, targetProfile) {
   };
 }
 
-module.exports = { mockExtractCriteria, mockSearchPeople, mockEnrichLead, mockScrapeCompany, mockDeepResearch };
+function mockPlanResearchSignals(targetProfile) {
+  return {
+    signals: [
+      {
+        category: 'hiring_activity',
+        rationale:
+          `Aktuelle Stellenanzeigen können zeigen, ob "${targetProfile.name}" gerade wächst und Bedarf ` +
+          `für unser Produkt hat (Mock-Begründung, da MOCK_MODE=true).`,
+      },
+      {
+        category: 'recent_news_pr',
+        rationale: 'Aktuelle Presse-/News-Erwähnungen geben Hinweise auf den richtigen Zeitpunkt für eine Ansprache (Mock-Begründung).',
+      },
+      {
+        category: 'funding_investment',
+        rationale: 'Finanzierungsrunden deuten auf verfügbares Budget für neue Tools/Anbieter hin (Mock-Begründung).',
+      },
+    ],
+  };
+}
+
+module.exports = {
+  mockExtractCriteria,
+  mockSearchPeople,
+  mockEnrichLead,
+  mockScrapeCompany,
+  mockDeepResearch,
+  mockPlanResearchSignals,
+};

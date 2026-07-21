@@ -57,6 +57,9 @@
                 <option value="won">Gewonnen</option>
                 <option value="lost">Verloren</option>
               </select>
+              <label style="display:flex; align-items:center; gap:0.35rem; font-weight:400; font-size:0.875rem;">
+                <input type="checkbox" x-model="hideLowFit" style="width:auto;" /> Geringe Passung ausblenden
+              </label>
             </div>
 
             <p class="subtitle" x-show="!leads.length">Noch keine Leads vorhanden. Starte eine Suche unter "Suchanfragen".</p>
@@ -112,11 +115,13 @@
         searchQuery: '',
         fitFilter: '',
         statusFilter: '',
+        hideLowFit: true,
 
         get filteredLeads() {
           const q = this.searchQuery.trim().toLowerCase();
           return this.leads.filter((lead) => {
             if (this.fitFilter && lead.score !== this.fitFilter) return false;
+            if (!this.fitFilter && this.hideLowFit && lead.score === 'low') return false;
             if (this.statusFilter && lead.status !== this.statusFilter) return false;
             if (!q) return true;
             const haystack = [lead.company_name, lead.first_name, lead.last_name, lead.email]

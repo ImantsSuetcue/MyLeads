@@ -79,11 +79,23 @@ spacing, type scale, badge/status colors) plus reusable component classes (`.car
 
 Every logged-in page shares one sidebar (`Dashboard` / `Suchanfragen` / `Leads` / `Team` /
 `Einstellungen`), with the active link highlighted automatically by `frontend/js/sidebar.js`.
-`Team` and `Einstellungen` are honest placeholders for now — the real features land in Phase 3.
+The layout adapts to window width: the sidebar collapses to a horizontal scrollable bar below
+~880px, and content blocks stretch to the full available width on wide windows instead of being
+capped.
 
 ## Project Status
 
-Being built phase by phase (see the plan). Phase 1 (core Lead-Finder) and Phase 2 (compliance
-scraper + deep research) are done, plus the design-system pass (sidebar navigation, cross-profile
-Leads view, per-lead value proposition + company/person links). This README will grow with setup
-instructions for each new phase (roles/teams, billing UI, CRM features, email) as they're built.
+Being built phase by phase (see the plan). Done so far:
+
+- **Phase 1** — core Lead-Finder (free-text target profile → Claude-structured filters → Apollo
+  search → AI-written fit reasoning + value proposition).
+- **Phase 2** — compliance scraper + Tiefen-Recherche (see above), plus the design-system pass
+  (sidebar navigation, cross-profile Leads view, per-lead value proposition + company/person links).
+- **Phase 3** — roles & permissions (Manager-managed teammates/groups, per-list access grants), a
+  Manager KPI dashboard with drill-down charts per metric, license top-ups + a mock Stripe Billing
+  Portal, and a Platform-Admin area for managing organizations.
+- **Phase 4** — CRM pipeline: editable lead status (new/contacted/qualified/proposal/won/lost) and
+  freeform notes per lead.
+
+Still open: Phase 5 (real invite emails via Resend, an additional data provider alongside Apollo),
+and going from mock-mode demo to a real deployment (real API keys, automated tests/CI, hosting).

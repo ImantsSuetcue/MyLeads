@@ -166,4 +166,4 @@ async function scrapeCompany(domain) {
   return result;
 }
 
-module.exports = { scrapeCompany, fetchAllowedPages, getRobots, isSuppressed, stripHtml };
+module.exports = { scrapeCompany };

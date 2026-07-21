@@ -3,10 +3,12 @@
 // for another provider without touching the DB layer or HTTP routes.
 //
 // Stage 1: claudeClient.extractCriteria    — free text -> structured filters
+// Stage 1.5: claudeClient.planResearchSignals — which public signals matter for THIS
+//            product/target profile, computed once and cached on target_profiles
 // Stage 2: apolloClient.searchPeople       — filters -> real companies + contacts
 // Stage 2.5: complianceScraper.scrapeCompany — fills industry/size gaps Apollo left, via each lead's own domain
-// Stage 3: claudeClient.enrichLead         — per-lead "why this fits" reasoning
-// Stage 4: deepResearch.runForSearch       — deep-dive report for top leads (plan-gated)
+// Stage 3: claudeClient.enrichLead         — per-lead "why this fits" reasoning, guided by the signal plan
+// Stage 4: deepResearch.runForSearch       — deep-dive report for top leads (plan-gated), also signal-plan-guided
 const db = require('../db/db');
 const { newId } = require('../utils/ids');
 const claudeClient = require('./claudeClient');
@@ -23,6 +25,14 @@ async function runSearch(searchRunId) {
   try {
     const criteria = await claudeClient.extractCriteria(targetProfile);
     db.prepare('UPDATE search_runs SET criteria_json = ? WHERE id = ?').run(JSON.stringify(criteria), searchRunId);
+
+    // Stage 1.5: compute the target profile's signal plan once and cache it — every later
+    // search for this same profile reuses it instead of asking Claude again.
+    let signalPlan = targetProfile.signal_plan_json ? JSON.parse(targetProfile.signal_plan_json) : null;
+    if (!signalPlan) {
+      signalPlan = await claudeClient.planResearchSignals(targetProfile);
+      db.prepare('UPDATE target_profiles SET signal_plan_json = ? WHERE id = ?').run(JSON.stringify(signalPlan), targetProfile.id);
+    }
 
     const results = await apolloClient.searchPeople(criteria);
     const domains = new Set();
@@ -107,7 +117,7 @@ async function runSearch(searchRunId) {
     // Stage 3: enrich each lead with a "why this fits" reasoning, an individual value
     // proposition, and a fit score.
     for (const lead of insertedLeads) {
-      const { reasoning, valueProposition, score } = await claudeClient.enrichLead(lead, targetProfile);
+      const { reasoning, valueProposition, score } = await claudeClient.enrichLead(lead, targetProfile, signalPlan);
       db.prepare(
         'UPDATE leads SET ai_reasoning = ?, value_proposition = ?, score = ? WHERE id = ?'
       ).run(reasoning, valueProposition, score, lead.id);

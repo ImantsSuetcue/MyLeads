@@ -1,10 +1,14 @@
 // Wraps every Claude API call the app makes:
 //   1. extractCriteria()            — free text -> structured Apollo filters (forced tool-use)
-//   2. enrichLead()                  — web-search-backed "why this lead fits" reasoning
-//   3. extractCompanyInfoFromText()  — structures text our own compliance scraper already
+//   2. planResearchSignals()        — which public signal categories are worth checking for
+//                                      THIS product/target profile (forced tool-use, cached
+//                                      once per target profile — see leadFinder.js)
+//   3. enrichLead()                  — web-search-backed "why this lead fits" reasoning,
+//                                      guided by the target profile's signal plan
+//   4. extractCompanyInfoFromText()  — structures text our own compliance scraper already
 //                                      fetched (no web_search tool here — Claude never fetches
 //                                      anything itself for this one, see complianceScraper.js)
-//   4. researchLeadDeep()            — longer web-search research + structured mini-report
+//   5. researchLeadDeep()            — longer web-search research + structured mini-report
 //                                      for top leads (see services/deepResearch.js)
 // MOCK_MODE short-circuits all of these to mockProviders so the rest of the app never
 // needs to know whether a real ANTHROPIC_API_KEY is configured yet.
@@ -90,6 +94,114 @@ Sales goals: ${targetProfile.goals || '(not specified)'}`;
   return toolUse.input;
 }
 
+// Fixed, curated vocabulary so the signal plan stays structured/displayable/cost-bounded —
+// 'custom' is the deliberate escape hatch for a genuinely lateral-thinking signal that doesn't
+// fit any named category (e.g. "job postings that hint at the exact pain point our product solves").
+const SIGNAL_CATEGORIES = [
+  'hiring_activity',
+  'funding_investment',
+  'leadership_changes',
+  'recent_news_pr',
+  'tech_stack',
+  'expansion_signals',
+  'certifications_compliance',
+  'social_proof',
+  'competitor_moves',
+  'pain_point_signals',
+];
+
+const SIGNAL_PLAN_TOOL = {
+  name: 'plan_research_signals',
+  description:
+    'Choose which public signal categories are worth investigating for leads matching this specific ' +
+    'product/target profile — not a generic checklist, but the 2-4 signals that actually matter for THIS product.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      signals: {
+        type: 'array',
+        minItems: 2,
+        maxItems: 4,
+        items: {
+          type: 'object',
+          properties: {
+            category: { type: 'string', enum: [...SIGNAL_CATEGORIES, 'custom'] },
+            custom_label: {
+              type: 'string',
+              description: 'Only set when category is "custom" — a short German label for this signal type.',
+            },
+            rationale: {
+              type: 'string',
+              description: 'German, 1 sentence: why this signal matters for THIS product/target audience specifically.',
+            },
+          },
+          required: ['category', 'rationale'],
+        },
+      },
+    },
+    required: ['signals'],
+  },
+};
+
+// Computed once per target profile and cached (target_profiles.signal_plan_json — see
+// leadFinder.js Stage 1.5), not per search/per lead: this is what lets enrichLead/researchLeadDeep
+// search for product-specific signals instead of the same hardcoded checklist for every customer.
+async function planResearchSignals(targetProfile) {
+  if (env.MOCK_MODE) {
+    return mockProviders.mockPlanResearchSignals(targetProfile);
+  }
+
+  const prompt = `We sell: ${targetProfile.product_description}
+To this kind of buyer: ${targetProfile.target_audience || '(see product description)'}
+Industry: ${targetProfile.industry || '(not specified)'}
+Sales goals: ${targetProfile.goals || '(not specified)'}
+
+Which public signal categories about a potential lead company would actually be meaningful to check for THIS
+specific product and target audience — not a generic list, think about what would genuinely indicate fit or
+timing for this product. Choose 2-4.`;
+
+  const response = await client.messages.create({
+    model: MODEL,
+    max_tokens: 768,
+    tools: [SIGNAL_PLAN_TOOL],
+    tool_choice: { type: 'tool', name: 'plan_research_signals' },
+    messages: [{ role: 'user', content: prompt }],
+  });
+
+  const toolUse = response.content.find((block) => block.type === 'tool_use');
+  return toolUse.input;
+}
+
+const SIGNAL_CATEGORY_LABELS = {
+  hiring_activity: 'Hiring-Aktivität',
+  funding_investment: 'Finanzierung/Investment',
+  leadership_changes: 'Führungswechsel',
+  recent_news_pr: 'Aktuelle News/Presse',
+  tech_stack: 'Eingesetzte Technologien',
+  expansion_signals: 'Expansion (Standorte/Märkte)',
+  certifications_compliance: 'Zertifizierungen/Compliance',
+  social_proof: 'Social Proof (Kundenstimmen/Reviews)',
+  competitor_moves: 'Wettbewerber-Aktivität',
+  pain_point_signals: 'Hinweise auf den gelösten Schmerzpunkt',
+};
+
+// Turns a cached signal plan into the prompt section enrichLead/researchLeadDeep splice into
+// their web-search prompt, replacing the old one-size-fits-all "recent news, hiring, funding"
+// instruction with exactly the signals this target profile's plan called out.
+function buildSignalPromptSection(signalPlan) {
+  const signals = signalPlan && Array.isArray(signalPlan.signals) ? signalPlan.signals : [];
+  if (!signals.length) {
+    return 'Search the web for brief, current, concrete context on this company (recent news, growth signals, hiring, funding).';
+  }
+
+  const lines = signals.map((s) => {
+    const label = s.category === 'custom' ? s.custom_label || 'Individuelles Signal' : SIGNAL_CATEGORY_LABELS[s.category] || s.category;
+    return `- ${label}: ${s.rationale}`;
+  });
+
+  return `Recherchiere gezielt nach folgenden, für dieses Produkt besonders aussagekräftigen Signalen:\n${lines.join('\n')}`;
+}
+
 const WEB_SEARCH_TOOL = { type: 'web_search_20260209', name: 'web_search', max_uses: 5 };
 
 // Shared by enrichLead() and researchLeadDeep(): sends a prompt with the web_search
@@ -158,7 +270,10 @@ const ENRICHMENT_STRUCTURE_TOOL = {
 // Two-call pattern (web-search prose -> forced-tool structuring), same architecture as
 // researchLeadDeep(). Produces two SEPARATE texts per lead: fit reasoning (why it matches)
 // and a value proposition (what we specifically offer this lead) — not one blended text.
-async function enrichLead(lead, targetProfile) {
+// `signalPlan` is the target profile's cached planResearchSignals() output (or null before
+// it's been computed) — it's what makes the web-search prompt product-specific instead of
+// the same generic checklist for every customer.
+async function enrichLead(lead, targetProfile, signalPlan) {
   if (env.MOCK_MODE) {
     return mockProviders.mockEnrichLead(lead, targetProfile);
   }
@@ -170,7 +285,7 @@ Potential lead:
 Company: ${lead.company_name}${lead.company_domain ? ` (${lead.company_domain})` : ''}
 Industry: ${lead.company_industry || 'unknown'}
 
-Search the web for brief, current, concrete context on this company (recent news, growth signals, hiring, funding).
+${buildSignalPromptSection(signalPlan)}
 Then write two things, in German:
 1. Why this lead fits our target profile (match criteria, company signals).
 2. What concrete value/benefit our product offers THIS specific company — an individual pitch, not a generic
@@ -296,7 +411,9 @@ async function structureResearchText(text) {
 // Two-call pattern (same architecture as extractCriteria + enrichLead, composed):
 // 1) web-search research in prose, 2) structure that prose into report fields.
 // Sources are the URLs Claude actually fetched during step 1, not asked-for in step 2.
-async function researchLeadDeep(lead, targetProfile) {
+// `signalPlan` — see enrichLead() above; the same cached per-target-profile plan feeds the
+// "Unternehmensphase"/signal point below instead of a fixed hiring/funding checklist.
+async function researchLeadDeep(lead, targetProfile, signalPlan) {
   if (env.MOCK_MODE) {
     return mockProviders.mockDeepResearch(lead, targetProfile);
   }
@@ -311,7 +428,7 @@ ${lead.value_proposition ? `\nExisting base-level value proposition for this lea
 Search the web and write a thorough report, in German, covering:
 1. Aktuelle Nachrichten/Pressemeldungen der letzten Monate.
 2. Öffentlich verfügbare Kennzahlen (grobe Mitarbeiterzahl, Umsatzgrößenordnung falls öffentlich, Wachstumssignale).
-3. Unternehmensphase (z.B. Startup, Wachstumsphase, etabliertes Unternehmen) anhand von Signalen wie Finanzierungsrunden, Stellenausschreibungen, Neuigkeiten.
+3. Unternehmensphase (z.B. Startup, Wachstumsphase, etabliertes Unternehmen). ${buildSignalPromptSection(signalPlan)}
 4. Eine klare Fit-Einschätzung (hohe/mittlere/geringe Passung) mit Begründung, warum das Unternehmen gerade jetzt in Frage kommt oder nicht.
 5. ${lead.value_proposition ? 'Eine vertiefte/verfeinerte Version des Mehrwert-Pitches oben, angereichert mit den hier gefundenen Signalen.' : 'Einen individuellen Mehrwert-Pitch: welchen konkreten Nutzen unser Produkt genau diesem Unternehmen bietet.'}
 6. 2-3 konkrete Gesprächsaufhänger für einen Sales-Call.
@@ -333,4 +450,4 @@ Write flowing prose with a clear paragraph per topic, not a form.`;
   };
 }
 
-module.exports = { extractCriteria, enrichLead, extractCompanyInfoFromText, researchLeadDeep };
+module.exports = { extractCriteria, planResearchSignals, enrichLead, extractCompanyInfoFromText, researchLeadDeep };
