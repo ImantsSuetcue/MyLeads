@@ -89,6 +89,19 @@
               <p x-text="lead.value_proposition || '–'"></p>
             </div>
 
+            <div class="card" style="margin-bottom:1.5rem;" x-show="statusHistory.length">
+              <h2 style="margin-top:0;">Status-Verlauf</h2>
+              <template x-for="entry in statusHistory" :key="entry.id">
+                <div style="padding:0.5rem 0; border-bottom:1px solid var(--color-border-subtle); font-size:0.875rem;">
+                  <span x-text="statusLabel(entry.old_status)"></span> &rarr;
+                  <strong x-text="statusLabel(entry.new_status)"></strong>
+                  <span class="plan-meta">
+                    &middot; <span x-text="entry.full_name || entry.email"></span> &middot; <span x-text="entry.changed_at"></span>
+                  </span>
+                </div>
+              </template>
+            </div>
+
             <template x-if="report">
               <div class="card">
                 <h2 style="margin-top:0;">Tiefen-Recherche</h2>
@@ -179,10 +192,23 @@
         report: null,
         notes: [],
         newNote: '',
+        statusHistory: [],
         loading: true,
         savingStatus: false,
         savingNote: false,
         error: '',
+        statusLabels: {
+          new: 'Neu',
+          contacted: 'Kontaktiert',
+          qualified: 'Qualifiziert',
+          proposal: 'Angebot',
+          won: 'Gewonnen',
+          lost: 'Verloren',
+        },
+
+        statusLabel(status) {
+          return this.statusLabels[status] || status;
+        },
 
         async init() {
           if (!auth.isLoggedIn()) {
@@ -202,6 +228,8 @@
             this.report = data.report;
             const notesData = await apiFetch(`/target-profiles/${this.profileId}/leads/${this.leadId}/notes`);
             this.notes = notesData.notes;
+            const historyData = await apiFetch(`/target-profiles/${this.profileId}/leads/${this.leadId}/status-history`);
+            this.statusHistory = historyData.history;
           } catch (err) {
             this.error = err.message;
           } finally {
@@ -217,6 +245,8 @@
               method: 'PATCH',
               body: JSON.stringify({ status: this.lead.status }),
             });
+            const historyData = await apiFetch(`/target-profiles/${this.profileId}/leads/${this.leadId}/status-history`);
+            this.statusHistory = historyData.history;
           } catch (err) {
             this.error = err.message;
           } finally {

@@ -194,6 +194,15 @@
             <option value="medium">Mittlere Passung</option>
             <option value="low">Geringe Passung</option>
           </select>
+          <select x-model="statusFilter">
+            <option value="">Alle Status</option>
+            <option value="new">Neu</option>
+            <option value="contacted">Kontaktiert</option>
+            <option value="qualified">Qualifiziert</option>
+            <option value="proposal">Angebot</option>
+            <option value="won">Gewonnen</option>
+            <option value="lost">Verloren</option>
+          </select>
           <label style="display:flex; align-items:center; gap:0.35rem; font-weight:400; font-size:0.875rem;">
             <input type="checkbox" x-model="hideLowFit" style="width:auto;" /> Geringe Passung ausblenden
           </label>
@@ -255,6 +264,7 @@
         error: '',
         searchQuery: '',
         fitFilter: '',
+        statusFilter: '',
         isManager: false,
         showSignalPanel: false,
         hideLowFit: true,
@@ -298,6 +308,7 @@
           return this.leads.filter((lead) => {
             if (this.fitFilter && lead.score !== this.fitFilter) return false;
             if (!this.fitFilter && this.hideLowFit && lead.score === 'low') return false;
+            if (this.statusFilter && lead.status !== this.statusFilter) return false;
             if (!q) return true;
             const haystack = [lead.company_name, lead.first_name, lead.last_name, lead.email]
               .filter(Boolean)

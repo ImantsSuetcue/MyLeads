@@ -103,6 +103,17 @@ CREATE TABLE IF NOT EXISTS notes (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- One row per status change (not just the latest) — so "who changed what, when" stays
+-- visible for every lead, the same way notes keep every entry's author, not just the last.
+CREATE TABLE IF NOT EXISTS lead_status_history (
+  id TEXT PRIMARY KEY,
+  lead_id TEXT NOT NULL REFERENCES leads(id),
+  user_id TEXT NOT NULL REFERENCES users(id),
+  old_status TEXT,
+  new_status TEXT NOT NULL,
+  changed_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS tasks (
   id TEXT PRIMARY KEY,
   lead_id TEXT REFERENCES leads(id),
@@ -185,6 +196,7 @@ CREATE INDEX IF NOT EXISTS idx_leads_profile ON leads(target_profile_id);
 CREATE INDEX IF NOT EXISTS idx_leads_search_run ON leads(search_run_id);
 CREATE INDEX IF NOT EXISTS idx_contacts_lead ON contacts(lead_id);
 CREATE INDEX IF NOT EXISTS idx_notes_lead ON notes(lead_id);
+CREATE INDEX IF NOT EXISTS idx_lead_status_history_lead ON lead_status_history(lead_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_org ON tasks(organization_id);
 CREATE INDEX IF NOT EXISTS idx_group_members_user ON group_members(user_id);
 CREATE INDEX IF NOT EXISTS idx_list_permissions_profile ON list_permissions(target_profile_id);

@@ -115,8 +115,30 @@ router.patch('/:leadId/status', (req, res) => {
   }
 
   db.prepare('UPDATE leads SET status = ? WHERE id = ?').run(status, lead.id);
+  if (status !== lead.status) {
+    db.prepare(
+      'INSERT INTO lead_status_history (id, lead_id, user_id, old_status, new_status) VALUES (?, ?, ?, ?, ?)'
+    ).run(newId(), lead.id, req.user.sub, lead.status, status);
+  }
   const updated = db.prepare('SELECT * FROM leads WHERE id = ?').get(lead.id);
   res.json({ lead: updated });
+});
+
+router.get('/:leadId/status-history', (req, res) => {
+  const lead = loadAccessibleLead(req, res);
+  if (!lead) return;
+
+  const history = db
+    .prepare(
+      `SELECT h.*, u.full_name, u.email
+       FROM lead_status_history h
+       JOIN users u ON u.id = h.user_id
+       WHERE h.lead_id = ?
+       ORDER BY h.changed_at DESC`
+    )
+    .all(lead.id);
+
+  res.json({ history });
 });
 
 router.get('/:leadId/notes', (req, res) => {
